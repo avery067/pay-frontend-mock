@@ -27,6 +27,30 @@ export const settlements: Settlement[] = [
   { ref: "STL-20260715-0071", from: "GBP", to: "CNY", pay: 6000, get: 54810.0, rate: 9.135, spread: 16.5, fee: 8, corridor: "UK → CN", recipient: "示例网店", purpose: "退款 Refund", status: "failed", created: "07-15 15:03" },
 ];
 
+/** MCC 消费类目（示例） */
+export const MCC_CATEGORIES = [
+  { code: "5411", zh: "商超", en: "Grocery" },
+  { code: "5812", zh: "餐饮", en: "Dining" },
+  { code: "5541", zh: "加油", en: "Fuel" },
+  { code: "4511", zh: "航空", en: "Airlines" },
+  { code: "7011", zh: "酒店", en: "Hotels" },
+  { code: "5734", zh: "软件订阅", en: "SaaS" },
+  { code: "5967", zh: "广告投放", en: "Advertising" },
+  { code: "4899", zh: "云服务", en: "Cloud" },
+];
+
+export type CardChannel = "online" | "atm" | "pos" | "crossBorder";
+
+export type CardControls = {
+  channels: Record<CardChannel, boolean>;
+  mccMode: "allow" | "deny";
+  mccList: string[];
+  perTxnLimit: number;
+  dailyLimit: number;
+  monthlyLimit: number;
+  velocity: { maxCount: number; window: "month" };
+};
+
 export type Card = {
   id: string;
   name: string;
@@ -37,13 +61,31 @@ export type Card = {
   limit: number;
   spent: number;
   status: CardStatus;
+  controls: CardControls;
+  // 内存计数器（原型：demo 重置清零）
+  spentToday: number;
+  monthCount: number;
 };
 
+const ctrl = (p: Partial<CardControls> & { channels?: Partial<Record<CardChannel, boolean>> } = {}): CardControls => ({
+  channels: { online: true, atm: false, pos: true, crossBorder: true, ...(p.channels || {}) },
+  mccMode: p.mccMode ?? "deny",
+  mccList: p.mccList ?? [],
+  perTxnLimit: p.perTxnLimit ?? 5000,
+  dailyLimit: p.dailyLimit ?? 8000,
+  monthlyLimit: p.monthlyLimit ?? 20000,
+  velocity: p.velocity ?? { maxCount: 60, window: "month" },
+});
+
 export const cards: Card[] = [
-  { id: "c1", name: "市场投放卡", type: "virtual", brand: "Visa", last4: "4242", currency: "USD", limit: 20000, spent: 12480, status: "active" },
-  { id: "c2", name: "SaaS 订阅卡", type: "virtual", brand: "Mastercard", last4: "5100", currency: "USD", limit: 5000, spent: 3260.5, status: "active" },
-  { id: "c3", name: "差旅实体卡", type: "physical", brand: "Visa", last4: "8817", currency: "EUR", limit: 10000, spent: 1890, status: "frozen" },
-  { id: "c4", name: "供应商付款卡", type: "virtual", brand: "Mastercard", last4: "3390", currency: "USD", limit: 50000, spent: 41200, status: "active" },
+  { id: "c1", name: "市场投放卡", type: "virtual", brand: "Visa", last4: "4242", currency: "USD", limit: 20000, spent: 12480, status: "active", spentToday: 640, monthCount: 23,
+    controls: ctrl({ channels: { online: true, atm: false, pos: false, crossBorder: true }, mccMode: "allow", mccList: ["5967", "4899", "5734"], perTxnLimit: 5000, dailyLimit: 8000, monthlyLimit: 20000, velocity: { maxCount: 50, window: "month" } }) },
+  { id: "c2", name: "SaaS 订阅卡", type: "virtual", brand: "Mastercard", last4: "5100", currency: "USD", limit: 5000, spent: 3260.5, status: "active", spentToday: 0, monthCount: 8,
+    controls: ctrl({ channels: { online: true, atm: false, pos: false, crossBorder: true }, mccMode: "allow", mccList: ["5734", "4899"], perTxnLimit: 1000, dailyLimit: 2000, monthlyLimit: 5000, velocity: { maxCount: 20, window: "month" } }) },
+  { id: "c3", name: "差旅实体卡", type: "physical", brand: "Visa", last4: "8817", currency: "EUR", limit: 10000, spent: 1890, status: "frozen", spentToday: 0, monthCount: 5,
+    controls: ctrl({ channels: { online: true, atm: true, pos: true, crossBorder: true }, mccMode: "allow", mccList: ["4511", "7011", "5812", "5541"], perTxnLimit: 3000, dailyLimit: 5000, monthlyLimit: 10000, velocity: { maxCount: 40, window: "month" } }) },
+  { id: "c4", name: "供应商付款卡", type: "virtual", brand: "Mastercard", last4: "3390", currency: "USD", limit: 50000, spent: 41200, status: "active", spentToday: 5200, monthCount: 31,
+    controls: ctrl({ channels: { online: true, atm: false, pos: false, crossBorder: true }, mccMode: "deny", mccList: [], perTxnLimit: 50000, dailyLimit: 50000, monthlyLimit: 50000, velocity: { maxCount: 80, window: "month" } }) },
 ];
 
 export type AcquiringTxn = {

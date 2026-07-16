@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Snowflake, Sun, Zap } from "lucide-react";
 import { useI18n } from "@/i18n";
+import { cn } from "@/lib/utils";
 import { formatAmount, formatMoney } from "@/lib/format";
-import { acquiringTxns } from "@/mock/data";
+import { MCC_CATEGORIES, type CardChannel } from "@/mock/data";
 import { useMock } from "@/mock/store";
 import {
   Sheet,
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { CardVisual } from "./card-visual";
 import { StatusBadge } from "./status-badge";
@@ -29,6 +31,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+const CHANNELS: { key: CardChannel; label: string }[] = [
+  { key: "online", label: "iss.chOnline" },
+  { key: "pos", label: "iss.chPos" },
+  { key: "atm", label: "iss.chAtm" },
+  { key: "crossBorder", label: "iss.chCross" },
+];
+
 export function CardDrawer({
   cardId,
   onOpenChange,
@@ -36,166 +45,264 @@ export function CardDrawer({
   cardId: string | null;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { toast } = useToast();
-  const { cards, cardTxns, spendOnCard, setCardFrozen, terminateCard } = useMock();
+  const { cards, cardTxns, spendOnCard, updateCardControls, setCardFrozen, terminateCard } = useMock();
   const card = cardId ? cards.find((c) => c.id === cardId) ?? null : null;
 
-  const [online, setOnline] = useState(true);
-  const [atm, setAtm] = useState(false);
-  const [intl, setIntl] = useState(true);
+  const [amount, setAmount] = useState(128.4);
+  const [mcc, setMcc] = useState(MCC_CATEGORIES[0].code);
+  const [channel, setChannel] = useState<CardChannel>("online");
 
   useEffect(() => {
     if (card) {
-      setOnline(true);
-      setAtm(false);
-      setIntl(true);
+      setAmount(128.4);
+      setMcc(card.controls.mccList[0] ?? MCC_CATEGORIES[0].code);
+      setChannel("online");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cardId]);
 
-  const frozen = card?.status === "frozen";
-  const issuing = card?.status === "issuing";
-  const pct = card ? Math.min(100, Math.round((card.spent / card.limit) * 100)) : 0;
-  const txns = card
-    ? [
-        ...(cardTxns[card.id] || []),
-        ...acquiringTxns.slice(0, 3).map((x) => ({ id: x.order, merchant: x.merchant, amount: x.gross })),
-      ]
-    : [];
+  if (!card) {
+    return (
+      <Sheet open={!!cardId} onOpenChange={onOpenChange}>
+        <SheetContent />
+      </Sheet>
+    );
+  }
+
+  const c = card.controls;
+  const frozen = card.status === "frozen";
+  const issuing = card.status === "issuing";
+  const editable = !issuing;
+  const txns = cardTxns[card.id] || [];
+  const mccName = (code: string) => {
+    const m = MCC_CATEGORIES.find((x) => x.code === code);
+    return m ? (lang === "zh" ? m.zh : m.en) : code;
+  };
+
+  const runSpend = () => {
+    const res = spendOnCard({ cardId: card.id, currency: card.currency, merchant: `${mccName(mcc)}（示例）`, amount, mcc, channel });
+    if (res.ok) toast(t("iss.approveToast"));
+    else toast(`${t("iss.declineToast")}：${t("iss.r" + (res.reason ?? "").charAt(0).toUpperCase() + (res.reason ?? "").slice(1))}`);
+  };
+
+  const toggleMcc = (code: string) => {
+    const has = c.mccList.includes(code);
+    updateCardControls(card.id, { mccList: has ? c.mccList.filter((x) => x !== code) : [...c.mccList, code] });
+  };
 
   return (
     <Sheet open={!!cardId} onOpenChange={onOpenChange}>
       <SheetContent>
-        {card && (
-          <>
-            <SheetHeader>
-              <div className="flex items-center gap-2">
-                <SheetTitle>{t("iss.detailTitle")}</SheetTitle>
-                <StatusBadge status={card.status} />
+        <SheetHeader>
+          <div className="flex items-center gap-2">
+            <SheetTitle>{t("iss.detailTitle")}</SheetTitle>
+            <StatusBadge status={card.status} />
+          </div>
+          <SheetDescription>{card.name}</SheetDescription>
+        </SheetHeader>
+
+        <SheetBody className="space-y-6">
+          <CardVisual name={card.name} brand={card.brand} last4={card.last4} currency={card.currency} frozen={frozen} className="max-w-xs" />
+
+          {/* 限额与用量 */}
+          <div className="space-y-3">
+            <div className="text-sm font-medium">{t("iss.limits")}</div>
+            <UsageBar label={t("iss.monthly")} used={card.spent} cap={c.monthlyLimit} currency={card.currency} />
+            <UsageBar label={t("iss.daily")} used={card.spentToday} cap={c.dailyLimit} currency={card.currency} />
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <Meta label={t("iss.perTxn")} value={formatMoney(c.perTxnLimit, card.currency)} />
+              <Meta label={t("iss.velocity")} value={`${card.monthCount} / ${c.velocity.maxCount} ${t("iss.velocityUnit")}`} />
+            </div>
+          </div>
+
+          {/* 类目策略 */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-medium">{t("iss.mccPolicy")}</span>
+              <div className="flex rounded-lg border border-border p-0.5 text-xs">
+                {(["allow", "deny"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    disabled={!editable}
+                    onClick={() => updateCardControls(card.id, { mccMode: m })}
+                    className={cn("rounded-md px-2 py-1 font-medium transition", c.mccMode === m ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:text-foreground")}
+                  >
+                    {m === "allow" ? t("iss.mccAllow") : t("iss.mccDeny")}
+                  </button>
+                ))}
               </div>
-              <SheetDescription>{card.name}</SheetDescription>
-            </SheetHeader>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {MCC_CATEGORIES.map((m) => {
+                const on = c.mccList.includes(m.code);
+                return (
+                  <button
+                    key={m.code}
+                    type="button"
+                    disabled={!editable}
+                    onClick={() => toggleMcc(m.code)}
+                    className={cn(
+                      "rounded-full border px-2.5 py-1 text-xs font-medium transition",
+                      on ? "border-brand bg-brand/10 text-foreground" : "border-border text-muted-foreground hover:bg-muted",
+                    )}
+                  >
+                    {lang === "zh" ? m.zh : m.en}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-            <SheetBody className="space-y-6">
-              <CardVisual name={card.name} brand={card.brand} last4={card.last4} currency={card.currency} frozen={frozen} className="max-w-xs" />
+          {/* 交易渠道 */}
+          <div>
+            <div className="mb-2 text-sm font-medium">{t("iss.channels")}</div>
+            <div className="divide-y divide-border rounded-xl border border-border">
+              {CHANNELS.map((ch) => (
+                <div key={ch.key} className="flex items-center justify-between px-3 py-3">
+                  <span className="text-sm">{t(ch.label)}</span>
+                  <Switch
+                    checked={c.channels[ch.key]}
+                    onCheckedChange={(v) => updateCardControls(card.id, { channels: { ...c.channels, [ch.key]: v } })}
+                    disabled={!editable}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
 
-              <div>
-                <div className="flex items-baseline justify-between text-sm">
-                  <span className="text-muted-foreground">{t("iss.spent")}</span>
-                  <span className="tabular-nums">
-                    <span className="font-semibold">{formatMoney(card.spent, card.currency)}</span>
-                    <span className="text-muted-foreground"> / {formatAmount(card.limit)}</span>
+          {/* 模拟授权（消费管控引擎生效） */}
+          {editable && (
+            <div className="space-y-3 rounded-xl border border-border p-3">
+              <div className="text-sm font-medium">{t("iss.simSpend")}</div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="space-y-1">
+                  <span className="text-xs text-muted-foreground">{t("iss.simAmount")}</span>
+                  <Input type="number" value={amount} onChange={(e) => setAmount(Math.max(0, Number(e.target.value) || 0))} className="h-9 tabular-nums" />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-muted-foreground">{t("iss.simCategory")}</span>
+                  <select value={mcc} onChange={(e) => setMcc(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+                    {MCC_CATEGORIES.map((m) => (
+                      <option key={m.code} value={m.code}>{lang === "zh" ? m.zh : m.en}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <label className="block space-y-1">
+                <span className="text-xs text-muted-foreground">{t("iss.simChannel")}</span>
+                <select value={channel} onChange={(e) => setChannel(e.target.value as CardChannel)} className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+                  {CHANNELS.map((ch) => (
+                    <option key={ch.key} value={ch.key}>{t(ch.label)}</option>
+                  ))}
+                </select>
+              </label>
+              <Button variant="outline" className="w-full" onClick={runSpend} disabled={frozen}>
+                <Zap />
+                {t("iss.simGo")}
+              </Button>
+            </div>
+          )}
+
+          {/* 卡交易（含拒付原因） */}
+          <div>
+            <div className="mb-2 text-sm font-medium">{t("iss.recent")}</div>
+            <div className="space-y-1">
+              {txns.length === 0 && <div className="px-2 py-3 text-sm text-muted-foreground">{t("common.empty")}</div>}
+              {txns.map((x) => (
+                <div key={x.id} className="flex items-center justify-between rounded-lg px-2 py-2 text-sm hover:bg-muted/50">
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="text-muted-foreground">{x.merchant}</span>
+                    {x.status === "declined" && x.reason && (
+                      <span className="ml-2 rounded bg-danger/10 px-1.5 py-0.5 text-[10px] font-medium text-danger">
+                        {t("iss.txDeclined")} · {t("iss.r" + x.reason.charAt(0).toUpperCase() + x.reason.slice(1))}
+                      </span>
+                    )}
+                  </span>
+                  <span className={cn("tabular-nums font-medium", x.status === "declined" ? "text-muted-foreground line-through" : "text-neg")}>
+                    − {formatMoney(x.amount, card.currency)}
                   </span>
                 </div>
-                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-secondary">
-                  <div className="h-full rounded-full bg-brand transition-[width] duration-500" style={{ width: `${pct}%` }} />
-                </div>
-              </div>
+              ))}
+            </div>
+          </div>
+        </SheetBody>
 
-              {!issuing && !frozen && (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  disabled={card.spent + 128.4 > card.limit}
-                  onClick={() => {
-                    spendOnCard({ cardId: card.id, currency: card.currency, merchant: "AWS（示例）", amount: 128.4 });
-                    toast(t("iss.charged"));
-                  }}
-                >
-                  <Zap />
-                  {t("iss.spend")}
-                </Button>
-              )}
+        {!issuing && (
+          <SheetFooter className="flex-col gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setCardFrozen(card.id, !frozen);
+                toast(frozen ? t("iss.unfreeze") : t("iss.freeze"));
+              }}
+            >
+              {frozen ? <Sun /> : <Snowflake />}
+              {frozen ? t("iss.unfreeze") : t("iss.freeze")}
+            </Button>
 
-              <div>
-                <div className="mb-2 text-sm font-medium">{t("iss.controls")}</div>
-                <div className="divide-y divide-border rounded-xl border border-border">
-                  <ControlRow label={t("iss.onlinePay")} checked={online} onChange={setOnline} disabled={frozen || issuing} />
-                  <ControlRow label={t("iss.atm")} checked={atm} onChange={setAtm} disabled={frozen || issuing} />
-                  <ControlRow label={t("iss.intl")} checked={intl} onChange={setIntl} disabled={frozen || issuing} />
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-2 text-sm font-medium">{t("iss.recent")}</div>
-                <div className="space-y-1">
-                  {txns.map((x) => (
-                    <div key={x.id} className="flex items-center justify-between rounded-lg px-2 py-2 text-sm hover:bg-muted/50">
-                      <span className="truncate text-muted-foreground">{x.merchant}</span>
-                      <span className="tabular-nums font-medium text-neg">− {formatMoney(x.amount, card.currency)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </SheetBody>
-
-            {!issuing && (
-              <SheetFooter className="flex-col gap-2 sm:flex-row">
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    setCardFrozen(card.id, !frozen);
-                    toast(frozen ? t("iss.unfreeze") : t("iss.freeze"));
-                  }}
-                >
-                  {frozen ? <Sun /> : <Snowflake />}
-                  {frozen ? t("iss.unfreeze") : t("iss.freeze")}
-                </Button>
-
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="destructive" className="w-full">{t("iss.terminate")}</Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-sm">
-                    <DialogHeader>
-                      <DialogTitle>{t("iss.terminateTitle")}</DialogTitle>
-                      <DialogDescription>{t("iss.terminateDesc")}</DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                      <DialogClose asChild>
-                        <Button variant="outline">{t("common.cancel")}</Button>
-                      </DialogClose>
-                      <DialogClose asChild>
-                        <Button
-                          variant="destructive"
-                          onClick={() => {
-                            onOpenChange(false);
-                            terminateCard(card.id);
-                            toast(t("iss.terminate"));
-                          }}
-                        >
-                          {t("iss.terminate")}
-                        </Button>
-                      </DialogClose>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </SheetFooter>
-            )}
-          </>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="destructive" className="w-full">{t("iss.terminate")}</Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>{t("iss.terminateTitle")}</DialogTitle>
+                  <DialogDescription>{t("iss.terminateDesc")}</DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="outline">{t("common.cancel")}</Button>
+                  </DialogClose>
+                  <DialogClose asChild>
+                    <Button
+                      variant="destructive"
+                      onClick={() => {
+                        onOpenChange(false);
+                        terminateCard(card.id);
+                        toast(t("iss.terminate"));
+                      }}
+                    >
+                      {t("iss.terminate")}
+                    </Button>
+                  </DialogClose>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </SheetFooter>
         )}
       </SheetContent>
     </Sheet>
   );
 }
 
-function ControlRow({
-  label,
-  checked,
-  onChange,
-  disabled,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-}) {
+function UsageBar({ label, used, cap, currency }: { label: string; used: number; cap: number; currency: string }) {
+  const pct = Math.min(100, Math.round((used / cap) * 100));
+  const tone = pct >= 90 ? "bg-danger" : pct >= 75 ? "bg-warning" : "bg-brand";
   return (
-    <div className="flex items-center justify-between px-3 py-3">
-      <span className="text-sm">{label}</span>
-      <Switch checked={checked} onCheckedChange={onChange} disabled={disabled} />
+    <div>
+      <div className="flex items-baseline justify-between text-sm">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="tabular-nums">
+          <span className="font-medium">{formatMoney(used, currency)}</span>
+          <span className="text-muted-foreground"> / {formatAmount(cap)}</span>
+        </span>
+      </div>
+      <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-secondary">
+        <div className={cn("h-full rounded-full transition-[width] duration-500", tone)} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-muted/40 px-3 py-2">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-0.5 font-medium tabular-nums">{value}</div>
     </div>
   );
 }

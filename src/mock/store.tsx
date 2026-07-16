@@ -30,7 +30,7 @@ import {
   recipients as recipientsSeed,
   type Recipient,
 } from "./more";
-import { cards as initialCards, notifications as notificationsSeed, type Card } from "./data";
+import { cards as initialCards, notifications as notificationsSeed, type Card, type CardControls, type CardChannel } from "./data";
 
 /** 结汇阶段：0 发起 · 1 合规审核 · 2 兑换 · 3 汇出 · 4 到账 */
 export type SettleStage = 0 | 1 | 2 | 3 | 4;
@@ -46,7 +46,32 @@ export type SettleRec = {
   declared: boolean;
 };
 
-export type CardTxn = { id: string; merchant: string; amount: number };
+export type CardTxn = {
+  id: string;
+  merchant: string;
+  amount: number;
+  mcc?: string;
+  channel?: CardChannel;
+  status: "cleared" | "declined";
+  reason?: string;
+};
+
+/** 发卡消费管控引擎：授权前校验 MCC / 渠道 / 单笔·日·月限额 / 频次 */
+export type SpendCheck = { ok: boolean; reason?: string };
+function evaluateControls(card: Card, p: { amount: number; mcc: string; channel: CardChannel }): SpendCheck {
+  if (card.status === "frozen") return { ok: false, reason: "frozen" };
+  if (card.status !== "active") return { ok: false, reason: "inactive" };
+  const c = card.controls;
+  if (!c.channels[p.channel]) return { ok: false, reason: "channel" };
+  const inList = c.mccList.includes(p.mcc);
+  if (c.mccMode === "allow" && !inList) return { ok: false, reason: "mcc" };
+  if (c.mccMode === "deny" && inList) return { ok: false, reason: "mcc" };
+  if (p.amount > c.perTxnLimit) return { ok: false, reason: "perTxn" };
+  if (card.spentToday + p.amount > c.dailyLimit) return { ok: false, reason: "daily" };
+  if (card.spent + p.amount > c.monthlyLimit) return { ok: false, reason: "monthly" };
+  if (card.monthCount + 1 > c.velocity.maxCount) return { ok: false, reason: "velocity" };
+  return { ok: true };
+}
 
 /** 通知：loop 事件（到账 / 打款 / 争议 / 开卡）会实时推入 */
 export type Notif = { id: string; type: string; zh: string; en: string; time: string; live?: boolean; unread?: boolean };
@@ -79,7 +104,8 @@ type MockValue = {
   cards: Card[];
   cardTxns: Record<string, CardTxn[]>;
   issueCard: (p: { name: string; type: "virtual" | "physical"; brand: string; last4: string; currency: string; limit: number }) => string;
-  spendOnCard: (p: { cardId: string; currency: string; merchant: string; amount: number }) => void;
+  spendOnCard: (p: { cardId: string; currency: string; merchant: string; amount: number; mcc: string; channel: CardChannel }) => SpendCheck;
+  updateCardControls: (cardId: string, patch: Partial<CardControls>) => void;
   setCardFrozen: (cardId: string, frozen: boolean) => void;
   terminateCard: (cardId: string) => void;
   // 收单闭环
@@ -158,6 +184,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
 
   const recordsRef = useRef(records);
   recordsRef.current = records;
+  const cardsRef = useRef(cards);
+  cardsRef.current = cards;
   const batchesRef = useRef(batches);
   batchesRef.current = batches;
   const acqTxnsRef = useRef(acqTxns);
@@ -225,7 +253,23 @@ export function MockProvider({ children }: { children: ReactNode }) {
   // ── 发卡 ──
   const issueCard: MockValue["issueCard"] = (p) => {
     const id = `cx${++cardSeqRef.current}`;
-    const card: Card = { id, ...p, spent: 0, status: "issuing" };
+    const card: Card = {
+      id,
+      ...p,
+      spent: 0,
+      status: "issuing",
+      spentToday: 0,
+      monthCount: 0,
+      controls: {
+        channels: { online: true, atm: false, pos: true, crossBorder: true },
+        mccMode: "deny",
+        mccList: [],
+        perTxnLimit: Math.max(1000, Math.round(p.limit / 4)),
+        dailyLimit: Math.max(2000, Math.round(p.limit / 2)),
+        monthlyLimit: p.limit,
+        velocity: { maxCount: 60, window: "month" },
+      },
+    };
     setCards((prev) => [card, ...prev]);
     window.setTimeout(() => {
       setCards((prev) => prev.map((c) => (c.id === id ? { ...c, status: "active" } : c)));
@@ -233,14 +277,25 @@ export function MockProvider({ children }: { children: ReactNode }) {
     }, 4200);
     return id;
   };
-  const spendOnCard: MockValue["spendOnCard"] = ({ cardId, currency, merchant, amount }) => {
-    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, spent: Math.min(c.limit, c.spent + amount) } : c)));
+  // 消费管控引擎生效：命中规则则拒付并记录原因，通过则扣款 + 计数
+  const spendOnCard: MockValue["spendOnCard"] = ({ cardId, currency, merchant, amount, mcc, channel }) => {
+    const card = cardsRef.current.find((c) => c.id === cardId);
+    if (!card) return { ok: false, reason: "inactive" };
+    const check = evaluateControls(card, { amount, mcc, channel });
+    const tid = `ct${++cardSeqRef.current}`;
+    if (!check.ok) {
+      setCardTxns((prev) => ({ ...prev, [cardId]: [{ id: tid, merchant, amount, mcc, channel, status: "declined", reason: check.reason }, ...(prev[cardId] || [])] }));
+      return check;
+    }
+    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, spent: c.spent + amount, spentToday: c.spentToday + amount, monthCount: c.monthCount + 1 } : c)));
     const usdPer = getRate(currency, "USD");
     setBalances((bs) => bs.map((b) => (b.currency === currency ? { ...b, available: Math.max(0, b.available - amount), usdEq: Math.max(0, b.usdEq - amount * usdPer) } : b)));
-    const tid = `ct${++cardSeqRef.current}`;
-    setCardTxns((prev) => ({ ...prev, [cardId]: [{ id: tid, merchant, amount }, ...(prev[cardId] || [])] }));
+    setCardTxns((prev) => ({ ...prev, [cardId]: [{ id: tid, merchant, amount, mcc, channel, status: "cleared" }, ...(prev[cardId] || [])] }));
     pushLedger({ type: "card", desc: merchant, dir: "out", amount, currency, status: "settled" });
+    return check;
   };
+  const updateCardControls: MockValue["updateCardControls"] = (cardId, patch) =>
+    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, controls: { ...c.controls, ...patch } } : c)));
   const setCardFrozen: MockValue["setCardFrozen"] = (cardId, frozen) =>
     setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, status: frozen ? "frozen" : "active" } : c)));
   const terminateCard: MockValue["terminateCard"] = (cardId) => setCards((prev) => prev.filter((c) => c.id !== cardId));
@@ -477,6 +532,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
         cardTxns,
         issueCard,
         spendOnCard,
+        updateCardControls,
         setCardFrozen,
         terminateCard,
         acqTxns,
