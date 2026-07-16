@@ -54,7 +54,7 @@ export type CardTxn = {
   amount: number;
   mcc?: string;
   channel?: CardChannel;
-  status: "cleared" | "declined";
+  status: "authorized" | "cleared" | "declined";
   reason?: string;
 };
 
@@ -218,6 +218,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
   recordsRef.current = records;
   const cardsRef = useRef(cards);
   cardsRef.current = cards;
+  const cardTxnsRef = useRef(cardTxns);
+  cardTxnsRef.current = cardTxns;
   const batchesRef = useRef(batches);
   batchesRef.current = batches;
   const acqTxnsRef = useRef(acqTxns);
@@ -335,7 +337,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, spent: c.spent + amount, spentToday: c.spentToday + amount, monthCount: c.monthCount + 1 } : c)));
     const usdPer = getRate(currency, "USD");
     setBalances((bs) => bs.map((b) => (b.currency === currency ? { ...b, available: Math.max(0, b.available - amount), usdEq: Math.max(0, b.usdEq - amount * usdPer) } : b)));
-    setCardTxns((prev) => ({ ...prev, [cardId]: [{ id: tid, merchant, amount, mcc, channel, status: "cleared" }, ...(prev[cardId] || [])] }));
+    // 两段式：先授权(预占额度)，由 tick 自动清算入账
+    setCardTxns((prev) => ({ ...prev, [cardId]: [{ id: tid, merchant, amount, mcc, channel, status: "authorized" }, ...(prev[cardId] || [])] }));
     pushLedger({ type: "card", desc: merchant, dir: "out", amount, currency, status: "settled" });
     return check;
   };
@@ -578,6 +581,16 @@ export function MockProvider({ children }: { children: ReactNode }) {
       }
       const mv = batchesRef.current.find((b) => b.status === "settling" || b.status === "paid_out");
       if (mv) advanceBatch(mv.id);
+
+      // 发卡两段式：已授权卡交易自动清算入账
+      const ct = cardTxnsRef.current;
+      if (Object.values(ct).some((list) => list.some((x) => x.status === "authorized"))) {
+        setCardTxns((prev) => {
+          const next: Record<string, CardTxn[]> = {};
+          for (const k in prev) next[k] = prev[k].map((x) => (x.status === "authorized" ? { ...x, status: "cleared" } : x));
+          return next;
+        });
+      }
 
       // 实时行情随机游走 + 限价委托越线触发结汇
       const nextSpot = jitterRates(spotRatesRef.current);

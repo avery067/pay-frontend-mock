@@ -231,6 +231,7 @@ export const zh = {
     simChannel: "渠道",
     simAmount: "金额",
     simGo: "发起授权",
+    txAuthorized: "已授权",
     txCleared: "已入账",
     txDeclined: "已拒付",
     declineToast: "授权被拒",

@@ -237,6 +237,7 @@ export const en: Dict = {
     simChannel: "Channel",
     simAmount: "Amount",
     simGo: "Authorize",
+    txAuthorized: "Authorized",
     txCleared: "Cleared",
     txDeclined: "Declined",
     declineToast: "Authorization declined",

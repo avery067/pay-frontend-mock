@@ -215,13 +215,16 @@ export function CardDrawer({
                 <div key={x.id} className="flex items-center justify-between rounded-lg px-2 py-2 text-sm hover:bg-muted/50">
                   <span className="min-w-0 flex-1 truncate">
                     <span className="text-muted-foreground">{x.merchant}</span>
+                    {x.status === "authorized" && (
+                      <span className="ml-2 rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">{t("iss.txAuthorized")}</span>
+                    )}
                     {x.status === "declined" && x.reason && (
                       <span className="ml-2 rounded bg-danger/10 px-1.5 py-0.5 text-[10px] font-medium text-danger">
                         {t("iss.txDeclined")} · {t("iss.r" + x.reason.charAt(0).toUpperCase() + x.reason.slice(1))}
                       </span>
                     )}
                   </span>
-                  <span className={cn("tabular-nums font-medium", x.status === "declined" ? "text-muted-foreground line-through" : "text-neg")}>
+                  <span className={cn("tabular-nums font-medium", x.status === "declined" ? "text-muted-foreground line-through" : x.status === "authorized" ? "text-warning" : "text-neg")}>
                     − {formatMoney(x.amount, card.currency)}
                   </span>
                 </div>
