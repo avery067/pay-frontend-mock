@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getRate } from "@/lib/quote";
+import { getRate, RATES } from "@/lib/quote";
 import {
   balances as initialBalances,
   settleFunds as initialFunds,
@@ -29,6 +29,8 @@ import {
   type PayLink,
   recipients as recipientsSeed,
   type Recipient,
+  fxOrdersSeed,
+  type FxOrder,
 } from "./more";
 import { cards as initialCards, notifications as notificationsSeed, type Card, type CardControls, type CardChannel } from "./data";
 
@@ -101,6 +103,11 @@ type MockValue = {
   initiateSettlement: (params: { fundId?: string; from: string; amount: number }) => string;
   advance: (ref: string) => void;
   retrySettlement: (ref: string) => void;
+  // 实时行情 + 限价结汇委托
+  spotRates: Record<string, number>;
+  fxOrders: FxOrder[];
+  placeFxOrder: (p: { from: string; amount: number; targetRate: number; direction: "gte" | "lte" }) => void;
+  cancelFxOrder: (id: string) => void;
   cards: Card[];
   cardTxns: Record<string, CardTxn[]>;
   issueCard: (p: { name: string; type: "virtual" | "physical"; brand: string; last4: string; currency: string; limit: number }) => string;
@@ -149,6 +156,27 @@ type MockValue = {
 
 const MockCtx = createContext<MockValue | null>(null);
 
+// 实时行情：以 USD 为桥用 spot 图算任意币对
+function spotUsdPer(spot: Record<string, number>, cur: string): number {
+  if (cur === "USD") return 1;
+  const r = spot[`USD/${cur}`];
+  return r ? 1 / r : 1 / (RATES[`USD/${cur}`] ?? 1);
+}
+export function spotRate(spot: Record<string, number>, from: string, to: string): number {
+  if (from === to) return 1;
+  return spotUsdPer(spot, from) / spotUsdPer(spot, to);
+}
+// 每 tick ±0.25% 随机游走，限制在种子价 ±3% 内
+function jitterRates(spot: Record<string, number>): Record<string, number> {
+  const next: Record<string, number> = {};
+  for (const k in spot) {
+    const seed = RATES[k] ?? spot[k];
+    const walk = spot[k] * (1 + (Math.random() - 0.5) * 0.005);
+    next[k] = Math.round(Math.min(seed * 1.03, Math.max(seed * 0.97, walk)) * 1e6) / 1e6;
+  }
+  return next;
+}
+
 function creditCny(bs: Balance[], rmb: number): Balance[] {
   const usdPerCny = getRate("CNY", "USD");
   return bs.map((b) => (b.currency === "CNY" ? { ...b, available: b.available + rmb, usdEq: b.usdEq + rmb * usdPerCny } : b));
@@ -183,6 +211,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [ledger, setLedger] = useState<LedgerTxn[]>(ledgerSeed);
   const [links, setLinks] = useState<PayLink[]>(linksSeed);
   const [recipientList, setRecipientList] = useState<Recipient[]>(recipientsSeed);
+  const [spotRates, setSpotRates] = useState<Record<string, number>>({ ...RATES });
+  const [fxOrders, setFxOrders] = useState<FxOrder[]>(fxOrdersSeed);
 
   const recordsRef = useRef(records);
   recordsRef.current = records;
@@ -198,6 +228,11 @@ export function MockProvider({ children }: { children: ReactNode }) {
   disputesRef.current = disputes;
   const linksRef = useRef(links);
   linksRef.current = links;
+  const spotRatesRef = useRef(spotRates);
+  spotRatesRef.current = spotRates;
+  const fxOrdersRef = useRef(fxOrders);
+  fxOrdersRef.current = fxOrders;
+  const fxSeqRef = useRef(1042);
   const seqRef = useRef(43);
   const cardSeqRef = useRef(0);
   const poSeqRef = useRef(1);
@@ -251,6 +286,14 @@ export function MockProvider({ children }: { children: ReactNode }) {
       prev.map((x) => (x.ref === ref && x.status === "failed" ? { ...x, stage: 0, status: "processing", declared: false } : x)),
     );
   };
+  // 限价结汇委托：外币→CNY 越过目标价，tick 内自动触发结汇
+  const placeFxOrder: MockValue["placeFxOrder"] = ({ from, amount, targetRate, direction }) => {
+    const id = `FXO-${++fxSeqRef.current}`;
+    const order: FxOrder = { id, from, amount, targetRate, direction, createdRate: spotRate(spotRatesRef.current, from, "CNY"), expiry: "GTC", status: "watching" };
+    setFxOrders((prev) => [order, ...prev]);
+  };
+  const cancelFxOrder: MockValue["cancelFxOrder"] = (id) =>
+    setFxOrders((prev) => prev.map((o) => (o.id === id && o.status === "watching" ? { ...o, status: "cancelled" } : o)));
 
   // ── 发卡 ──
   const issueCard: MockValue["issueCard"] = (p) => {
@@ -505,6 +548,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setLedger(ledgerSeed);
     setLinks(linksSeed);
     setRecipientList(recipientsSeed);
+    setSpotRates({ ...RATES });
+    setFxOrders(fxOrdersSeed);
   };
 
   // 自动推进：结汇处理中的记录 + 已开始结算的批次
@@ -533,6 +578,21 @@ export function MockProvider({ children }: { children: ReactNode }) {
       }
       const mv = batchesRef.current.find((b) => b.status === "settling" || b.status === "paid_out");
       if (mv) advanceBatch(mv.id);
+
+      // 实时行情随机游走 + 限价委托越线触发结汇
+      const nextSpot = jitterRates(spotRatesRef.current);
+      setSpotRates(nextSpot);
+      fxOrdersRef.current
+        .filter((o) => o.status === "watching")
+        .forEach((o) => {
+          const cur = spotRate(nextSpot, o.from, "CNY");
+          const hit = o.direction === "gte" ? cur >= o.targetRate : cur <= o.targetRate;
+          if (hit) {
+            setFxOrders((prev) => prev.map((x) => (x.id === o.id ? { ...x, status: "triggered" } : x)));
+            initiateSettlement({ from: o.from, amount: o.amount });
+            pushNotif("success", `限价委托 ${o.id} 已触发结汇（${o.from}→CNY @ ${o.targetRate}）`, `FX order ${o.id} triggered`);
+          }
+        });
     }, 2600);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -558,6 +618,10 @@ export function MockProvider({ children }: { children: ReactNode }) {
         initiateSettlement,
         advance,
         retrySettlement,
+        spotRates,
+        fxOrders,
+        placeFxOrder,
+        cancelFxOrder,
         cards,
         cardTxns,
         issueCard,

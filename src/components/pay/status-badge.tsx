@@ -22,6 +22,10 @@ const MAP: Record<string, { variant: Variant; key: string }> = {
   voided: { variant: "info", key: "status.voided" },
   refunded: { variant: "info", key: "status.refunded" },
   disputed: { variant: "danger", key: "status.disputed" },
+  watching: { variant: "info", key: "fxo.statusWatching" },
+  triggered: { variant: "success", key: "fxo.statusTriggered" },
+  cancelled: { variant: "info", key: "fxo.statusCancelled" },
+  expired: { variant: "danger", key: "fxo.statusExpired" },
 };
 
 export function StatusBadge({ status }: { status: string }) {

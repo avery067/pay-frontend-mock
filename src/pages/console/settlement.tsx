@@ -17,6 +17,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/pay/status-badge";
 import { SettleFxDialog } from "@/components/pay/settle-fx-dialog";
 import { SettleRecordDrawer } from "@/components/pay/settle-record-drawer";
+import { FxTicker } from "@/components/pay/fx-ticker";
+import { FxOrderDialog } from "@/components/pay/fx-order-dialog";
+import { spotRate } from "@/mock/store";
 
 const STEP_KEYS = [
   "set.stepInitiated",
@@ -29,7 +32,7 @@ const STEP_KEYS = [
 export default function SettlementPage() {
   const { t } = useI18n();
   const { toast } = useToast();
-  const { funds, records, pendingUsd, retrySettlement } = useMock();
+  const { funds, records, pendingUsd, retrySettlement, fxOrders, cancelFxOrder, spotRates } = useMock();
   const [openRef, setOpenRef] = useState<string | null>(null);
   const [reconView, setReconView] = useState<"orig" | "settle">("orig");
   const quotaPct = Math.round((settleQuota.usedRmb / settleQuota.totalRmb) * 100);
@@ -64,6 +67,8 @@ export default function SettlementPage() {
           </SettleFxDialog>
         }
       />
+
+      <FxTicker />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
@@ -103,6 +108,7 @@ export default function SettlementPage() {
       <Tabs defaultValue="pending">
         <TabsList>
           <TabsTrigger value="pending">{t("stl.tabPending")}</TabsTrigger>
+          <TabsTrigger value="orders">{t("fxo.tab")}</TabsTrigger>
           <TabsTrigger value="records">{t("stl.tabRecords")}</TabsTrigger>
           <TabsTrigger value="recon">{t("stl.tabRecon")}</TabsTrigger>
         </TabsList>
@@ -149,6 +155,71 @@ export default function SettlementPage() {
                     {funds.length === 0 && (
                       <tr>
                         <td colSpan={5} className="px-6 py-10 text-center text-sm text-muted-foreground">—</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="orders">
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-3">
+              <p className="text-xs text-muted-foreground">{t("fxo.hint")}</p>
+              <FxOrderDialog>
+                <Button size="sm">
+                  <Plus />
+                  {t("fxo.new")}
+                </Button>
+              </FxOrderDialog>
+            </div>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-xs text-muted-foreground">
+                      <th className="px-6 py-2.5 text-left font-medium">{t("stl.recRef")}</th>
+                      <th className="px-3 py-2.5 text-right font-medium">{t("fxo.amount")}</th>
+                      <th className="px-3 py-2.5 text-right font-medium">{t("fxo.colTarget")}</th>
+                      <th className="px-3 py-2.5 text-right font-medium">{t("fxo.current")}</th>
+                      <th className="px-3 py-2.5 text-right font-medium">{t("fxo.distance")}</th>
+                      <th className="px-3 py-2.5 text-left font-medium">{t("console.colStatus")}</th>
+                      <th className="px-6 py-2.5 text-right font-medium"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fxOrders.map((o) => {
+                      const cur = spotRate(spotRates, o.from, "CNY");
+                      const dist = ((o.targetRate - cur) / cur) * 100 * (o.direction === "gte" ? 1 : -1);
+                      return (
+                        <tr key={o.id} className="border-b border-border/60 last:border-0">
+                          <td className="px-6 py-3 font-medium tabular-nums">{o.id}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{o.from} {formatAmount(o.amount)}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{formatAmount(o.targetRate, { min: 4, max: 4 })}</td>
+                          <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">{formatAmount(cur, { min: 4, max: 4 })}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">
+                            {o.status === "watching" ? (
+                              <span className={dist <= 0 ? "text-pos" : "text-muted-foreground"}>{dist > 0 ? `${dist.toFixed(2)}%` : "≤0%"}</span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3"><StatusBadge status={o.status} /></td>
+                          <td className="px-6 py-3 text-right">
+                            {o.status === "watching" && (
+                              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-danger hover:text-danger" onClick={() => { cancelFxOrder(o.id); toast(t("fxo.cancelled")); }}>
+                                {t("fxo.cancel")}
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {fxOrders.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-10 text-center text-sm text-muted-foreground">{t("common.empty")}</td>
                       </tr>
                     )}
                   </tbody>

@@ -104,6 +104,23 @@ export type SettleRecord = {
   status: PayStatus;
   date: string;
 };
+
+/** 限价结汇委托（挂单锁汇）：外币越过目标价自动触发结汇 */
+export type FxOrder = {
+  id: string;
+  from: string;
+  amount: number;
+  targetRate: number;
+  direction: "gte" | "lte";
+  createdRate: number;
+  expiry: string;
+  status: "watching" | "triggered" | "cancelled" | "expired";
+};
+export const fxOrdersSeed: FxOrder[] = [
+  { id: "FXO-1042", from: "USD", amount: 50000, targetRate: 7.19, direction: "gte", createdRate: 7.182, expiry: "GTC", status: "watching" },
+  { id: "FXO-1039", from: "EUR", amount: 20000, targetRate: 7.85, direction: "gte", createdRate: 7.836, expiry: "GTC", status: "watching" },
+  { id: "FXO-1031", from: "GBP", amount: 12000, targetRate: 9.05, direction: "gte", createdRate: 9.124, expiry: "2026-07-31", status: "triggered" },
+];
 export const settleRecords: SettleRecord[] = [
   { ref: "STL-20260716-0042", from: "USD", amount: 10000, rmb: 71482.45, rate: 7.182, declared: true, status: "settled", date: "07-16 09:24" },
   { ref: "STL-20260715-0031", from: "EUR", amount: 8000, rmb: 62592.0, rate: 7.824, declared: true, status: "settled", date: "07-15 16:10" },
