@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Plus, RotateCcw, ShieldCheck } from "lucide-react";
+import { Download, Plus, RotateCcw, ShieldCheck } from "lucide-react";
 import { useI18n } from "@/i18n";
+import { cn } from "@/lib/utils";
 import { formatAmount, formatMoney } from "@/lib/format";
+import { exportCsv } from "@/lib/export-csv";
 import { settleQuota } from "@/mock/more";
 import { useMock } from "@/mock/store";
 import { usePageLoading } from "@/hooks/use-page-loading";
@@ -29,8 +31,23 @@ export default function SettlementPage() {
   const { toast } = useToast();
   const { funds, records, pendingUsd, retrySettlement } = useMock();
   const [openRef, setOpenRef] = useState<string | null>(null);
+  const [reconView, setReconView] = useState<"orig" | "settle">("orig");
   const quotaPct = Math.round((settleQuota.usedRmb / settleQuota.totalRmb) * 100);
   const loading = usePageLoading();
+
+  // 对账（纯派生）：毛额 = 原币金额 × 成交汇率，点差 = 毛额 − 结算到手
+  const recon = records
+    .filter((r) => r.status === "settled")
+    .map((r) => {
+      const grossRmb = r.amount * r.rate;
+      const spread = grossRmb - r.rmb;
+      return { ref: r.ref, from: r.from, amount: r.amount, rate: r.rate, grossRmb, spread, rmb: r.rmb, diff: grossRmb - spread - r.rmb };
+    });
+  const reconTotal = recon.reduce(
+    (a, r) => ({ grossRmb: a.grossRmb + r.grossRmb, spread: a.spread + r.spread, rmb: a.rmb + r.rmb }),
+    { grossRmb: 0, spread: 0, rmb: 0 },
+  );
+
   if (loading) return <LoadingSkeleton kpis={3} rows={5} />;
 
   return (
@@ -87,6 +104,7 @@ export default function SettlementPage() {
         <TabsList>
           <TabsTrigger value="pending">{t("stl.tabPending")}</TabsTrigger>
           <TabsTrigger value="records">{t("stl.tabRecords")}</TabsTrigger>
+          <TabsTrigger value="recon">{t("stl.tabRecon")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending">
@@ -198,6 +216,99 @@ export default function SettlementPage() {
                   </tbody>
                 </table>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="recon">
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-3">
+              <div className="flex rounded-lg border border-border p-0.5 text-sm">
+                {(["orig", "settle"] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setReconView(v)}
+                    className={cn("rounded-md px-3 py-1 font-medium transition", reconView === v ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:text-foreground")}
+                  >
+                    {v === "orig" ? t("stl.viewOrig") : t("stl.viewSettle")}
+                  </button>
+                ))}
+              </div>
+              <Button size="sm" variant="outline" onClick={() => exportCsv("settlement-recon.csv", recon)}>
+                <Download />
+                {t("rep.export")}
+              </Button>
+            </div>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-xs text-muted-foreground">
+                      <th className="px-6 py-2.5 text-left font-medium">{t("stl.recRef")}</th>
+                      {reconView === "orig" ? (
+                        <>
+                          <th className="px-3 py-2.5 text-right font-medium">{t("cvt.youConvert")}</th>
+                          <th className="px-3 py-2.5 text-right font-medium">{t("console.colAmount")}</th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="px-3 py-2.5 text-right font-medium">{t("stl.colGrossRmb")}</th>
+                          <th className="px-3 py-2.5 text-right font-medium">{t("stl.colSpread")}</th>
+                        </>
+                      )}
+                      <th className="px-3 py-2.5 text-right font-medium">{t("stl.colNetRmb")}</th>
+                      <th className="px-6 py-2.5 text-right font-medium">{t("stl.colReconcile")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recon.map((r) => (
+                      <tr key={r.ref} className="border-b border-border/60 last:border-0">
+                        <td className="px-6 py-3 font-medium tabular-nums">{r.ref}</td>
+                        {reconView === "orig" ? (
+                          <>
+                            <td className="px-3 py-3 text-right tabular-nums">{r.from} {formatAmount(r.amount)}</td>
+                            <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">{formatAmount(r.rate, { min: 4, max: 4 })}</td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="px-3 py-3 text-right tabular-nums">{formatAmount(r.grossRmb)}</td>
+                            <td className="px-3 py-3 text-right tabular-nums text-neg">− {formatAmount(r.spread)}</td>
+                          </>
+                        )}
+                        <td className="px-3 py-3 text-right font-medium tabular-nums">{formatAmount(r.rmb)}</td>
+                        <td className="px-6 py-3 text-right tabular-nums text-success">{r.diff.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                    {recon.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-10 text-center text-sm text-muted-foreground">{t("common.empty")}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                  {recon.length > 0 && (
+                    <tfoot>
+                      <tr className="border-t border-border font-medium">
+                        <td className="px-6 py-3">{t("stl.totalRow")}</td>
+                        {reconView === "orig" ? (
+                          <>
+                            <td className="px-3 py-3 text-right text-muted-foreground">—</td>
+                            <td className="px-3 py-3 text-right text-muted-foreground">—</td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="px-3 py-3 text-right tabular-nums">{formatAmount(reconTotal.grossRmb)}</td>
+                            <td className="px-3 py-3 text-right tabular-nums text-neg">− {formatAmount(reconTotal.spread)}</td>
+                          </>
+                        )}
+                        <td className="px-3 py-3 text-right tabular-nums">{formatAmount(reconTotal.rmb)}</td>
+                        <td className="px-6 py-3 text-right tabular-nums text-success">0.00</td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+              <p className="px-6 py-3 text-xs text-muted-foreground">{t("stl.reconTip")}</p>
             </CardContent>
           </Card>
         </TabsContent>
