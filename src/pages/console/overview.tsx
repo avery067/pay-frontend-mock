@@ -26,18 +26,23 @@ import { AcquiringTxnDrawer } from "@/components/pay/acquiring-txn-drawer";
 
 type BadgeVariant = "success" | "warning";
 
-const kpis: { key: string; value: string; delta: string; variant: BadgeVariant }[] = [
-  { key: "console.kpiVolume", value: formatMoney(1284530), delta: "+12.4%", variant: "success" },
-  { key: "console.kpiPending", value: formatMoney(342120.5), delta: "+8.1%", variant: "warning" },
-  { key: "console.kpiCards", value: formatAmount(1286, { min: 0, max: 0 }), delta: "+3.2%", variant: "success" },
-  { key: "console.kpiSuccess", value: "98.6%", delta: "+0.4%", variant: "success" },
-];
-
 export default function OverviewPage() {
   const { t } = useI18n();
-  const { acqTxns, batches } = useMock();
+  const { acqTxns, batches, cards, pendingPoolUsd } = useMock();
   const [order, setOrder] = useState<string | null>(null);
   const loading = usePageLoading();
+
+  const volume = acqTxns.reduce((s, x) => s + x.gross, 0);
+  const activeCards = cards.filter((c) => c.status === "active").length;
+  const settledCount = acqTxns.filter((x) => !["failed", "voided", "disputed"].includes(x.status)).length;
+  const successRate = acqTxns.length ? (settledCount / acqTxns.length) * 100 : 100;
+  const kpis: { key: string; value: string; delta: string; variant: BadgeVariant }[] = [
+    { key: "console.kpiVolume", value: formatMoney(volume), delta: "+12.4%", variant: "success" },
+    { key: "console.kpiPending", value: formatMoney(pendingPoolUsd), delta: "+8.1%", variant: "warning" },
+    { key: "console.kpiCards", value: formatAmount(activeCards, { min: 0, max: 0 }), delta: "+3.2%", variant: "success" },
+    { key: "console.kpiSuccess", value: `${successRate.toFixed(1)}%`, delta: "+0.4%", variant: "success" },
+  ];
+
   if (loading) return <LoadingSkeleton kpis={4} rows={5} />;
   const tooltipStyle = {
     background: "var(--popover)",
@@ -171,7 +176,7 @@ export default function OverviewPage() {
                       <td className="px-3 py-3 tabular-nums text-muted-foreground">{x.method}</td>
                       <td className="px-3 py-3 text-right font-medium tabular-nums text-pos">+ {formatMoney(x.gross)}</td>
                       <td className="px-3 py-3"><StatusBadge status={x.status} /></td>
-                      <td className="px-6 py-3 text-right tabular-nums text-muted-foreground">{x.time}</td>
+                      <td className="px-6 py-3 text-right tabular-nums text-muted-foreground">{x.time || t("txn.now")}</td>
                     </tr>
                   ))}
                 </tbody>
