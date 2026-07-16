@@ -1,8 +1,10 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import LandingPage from "@/pages/landing";
 import LoginPage from "@/pages/login";
+import OnboardingPage from "@/pages/onboarding";
 import { ConsoleLayout } from "@/components/layout/console-layout";
 import OverviewPage from "@/pages/console/overview";
+import SettlementPage from "@/pages/console/settlement";
 import BalancesPage from "@/pages/console/balances";
 import TransactionsPage from "@/pages/console/transactions";
 import ConvertPage from "@/pages/console/convert";
@@ -22,6 +24,7 @@ export function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/onboarding" element={<OnboardingPage />} />
       <Route path="/app" element={<ConsoleLayout />}>
         <Route index element={<OverviewPage />} />
         <Route path="balances" element={<BalancesPage />} />
@@ -37,8 +40,8 @@ export function App() {
         <Route path="team" element={<TeamPage />} />
         <Route path="developers" element={<DevelopersPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="settlement" element={<SettlementPage />} />
         {/* 旧业务线路径重定向到商户视角页面 */}
-        <Route path="settlement" element={<Navigate to="/app/convert" replace />} />
         <Route path="issuing" element={<Navigate to="/app/cards" replace />} />
         <Route path="acquiring" element={<Navigate to="/app/payments" replace />} />
       </Route>

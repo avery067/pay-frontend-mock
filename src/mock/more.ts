@@ -73,3 +73,41 @@ export const corridorVolume = [
   { name: "UK → CN", v: 176000 },
   { name: "US → JP", v: 132000 },
 ];
+
+// B2B 结汇：待核查账户中的待结汇资金（示例）
+export type SettleFund = {
+  id: string;
+  source: string;
+  currency: string;
+  amount: number;
+  usdEq: number;
+  arrived: string;
+  tradeVerified: boolean;
+};
+export const settleFunds: SettleFund[] = [
+  { id: "SF-77012", source: "Acme Inc.（示例）", currency: "USD", amount: 48200, usdEq: 48200, arrived: "07-16", tradeVerified: true },
+  { id: "SF-77008", source: "Globex GmbH（示例）", currency: "EUR", amount: 21500, usdEq: 23450, arrived: "07-15", tradeVerified: true },
+  { id: "SF-77003", source: "Initech Ltd.（示例）", currency: "GBP", amount: 12800, usdEq: 16270, arrived: "07-15", tradeVerified: false },
+  { id: "SF-76991", source: "Contoso KK（示例）", currency: "JPY", amount: 3600000, usdEq: 22960, arrived: "07-14", tradeVerified: true },
+];
+export const settlePendingUsd = settleFunds.reduce((s, f) => s + f.usdEq, 0);
+
+// 结汇记录（示例）
+export type SettleRecord = {
+  ref: string;
+  from: string;
+  amount: number;
+  rmb: number;
+  rate: number;
+  declared: boolean;
+  status: PayStatus;
+  date: string;
+};
+export const settleRecords: SettleRecord[] = [
+  { ref: "STL-20260716-0042", from: "USD", amount: 10000, rmb: 71482.45, rate: 7.182, declared: true, status: "settled", date: "07-16 09:24" },
+  { ref: "STL-20260715-0031", from: "EUR", amount: 8000, rmb: 62592.0, rate: 7.824, declared: true, status: "settled", date: "07-15 16:10" },
+  { ref: "STL-20260715-0022", from: "USD", amount: 15000, rmb: 107235.0, rate: 7.182, declared: false, status: "processing", date: "07-15 11:03" },
+];
+
+// 年度便利化额度（RMB，示例）
+export const settleQuota = { usedRmb: 22_400_000, totalRmb: 35_000_000 };

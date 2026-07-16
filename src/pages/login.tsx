@@ -112,9 +112,9 @@ export default function LoginPage() {
 
             <p className="mt-6 text-center text-sm text-muted-foreground">
               {t("login.noAccount")}{" "}
-              <a href="#" className="font-medium text-foreground hover:underline">
+              <Link to="/onboarding" className="font-medium text-foreground hover:underline">
                 {t("actions.signup")}
-              </a>
+              </Link>
             </p>
           </div>
         </div>

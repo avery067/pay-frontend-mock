@@ -4,6 +4,7 @@ import {
   Wallet,
   Receipt,
   Repeat,
+  Landmark,
   Send,
   Users,
   HandCoins,
@@ -31,6 +32,7 @@ const GROUPS: Group[] = [
     items: [
       { to: "/app/balances", icon: Wallet, key: "nav.balances" },
       { to: "/app/transactions", icon: Receipt, key: "nav.transactions" },
+      { to: "/app/settlement", icon: Landmark, key: "nav.settlement" },
       { to: "/app/convert", icon: Repeat, key: "nav.convert" },
       { to: "/app/transfers", icon: Send, key: "nav.transfers" },
       { to: "/app/recipients", icon: Users, key: "nav.recipients" },

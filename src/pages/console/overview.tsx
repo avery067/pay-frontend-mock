@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Calendar, ChevronRight, Plus, TrendingUp } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRight, Calendar, ChevronRight, Plus, ShieldCheck, TrendingUp } from "lucide-react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -15,7 +16,8 @@ import { acquiringTxns, payouts, type AcquiringTxn } from "@/mock/data";
 import { volumeSeries } from "@/mock/more";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/pay/status-badge";
 import { NewSettlementDialog } from "@/components/pay/new-settlement-dialog";
 import { AcquiringTxnDrawer } from "@/components/pay/acquiring-txn-drawer";
@@ -42,6 +44,26 @@ export default function OverviewPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
+      <Link
+        to="/onboarding"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4 transition hover:shadow-md"
+        style={{ background: "var(--surface-deep)", color: "var(--surface-deep-foreground)" }}
+      >
+        <div className="flex items-center gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand text-brand-strong">
+            <ShieldCheck className="size-5" />
+          </span>
+          <div>
+            <div className="text-sm font-medium">{t("onb.bannerTitle")}</div>
+            <div className="text-xs opacity-75">{t("onb.bannerDesc")}</div>
+          </div>
+        </div>
+        <span className={cn(buttonVariants({ variant: "brand", size: "sm" }))}>
+          {t("onb.bannerCta")}
+          <ArrowRight />
+        </span>
+      </Link>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
