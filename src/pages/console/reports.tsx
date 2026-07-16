@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { useI18n } from "@/i18n";
 import { formatMoney } from "@/lib/format";
+import { exportCsv } from "@/lib/export-csv";
 import { volumeSeries, methodBreakdown, corridorVolume } from "@/mock/more";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,7 +39,7 @@ export default function ReportsPage() {
         title={t("rep.title")}
         subtitle={t("rep.subtitle")}
         actions={
-          <Button size="sm" variant="outline">
+          <Button size="sm" variant="outline" onClick={() => exportCsv("volume.csv", volumeSeries)}>
             <Download />
             {t("rep.export")}
           </Button>

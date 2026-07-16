@@ -73,9 +73,12 @@ export const payouts = [
 ];
 
 export const notifications = [
-  { id: "n1", zh: "结汇 STL-…0042 已到账", en: "Settlement STL-…0042 has arrived", time: "09:25" },
-  { id: "n2", zh: "差旅实体卡触发地区限制", en: "Travel card hit a region limit", time: "08:48" },
-  { id: "n3", zh: "结算批次 PO-20260717 已生成", en: "Payout batch PO-20260717 created", time: "07:30" },
+  { id: "n1", type: "success", zh: "结汇 STL-…0042 已到账", en: "Settlement STL-…0042 has arrived", time: "09:25" },
+  { id: "n2", type: "warning", zh: "差旅实体卡触发地区限制", en: "Travel card hit a region limit", time: "08:48" },
+  { id: "n3", type: "info", zh: "结算批次 PO-20260717 已生成", en: "Payout batch PO-20260717 created", time: "07:30" },
+  { id: "n4", type: "warning", zh: "订单 OD-88231 收到拒付争议", en: "Chargeback opened on order OD-88231", time: "07-15" },
+  { id: "n5", type: "success", zh: "市场投放卡 开卡成功", en: "Card “Marketing” issued", time: "07-15" },
+  { id: "n6", type: "info", zh: "企业认证（KYB）已通过", en: "Business verification (KYB) approved", time: "07-14" },
 ];
 
 // FX 行情条（示例）

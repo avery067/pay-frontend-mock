@@ -53,12 +53,16 @@ export function Topbar({ onMenu, onSearch }: { onMenu?: () => void; onSearch?: (
           <DropdownMenuContent align="end" className="w-72">
             <DropdownMenuLabel>{t("menu.notifTitle")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {notifications.map((n) => (
+            {notifications.slice(0, 4).map((n) => (
               <DropdownMenuItem key={n.id} className="flex-col items-start gap-0.5">
                 <span className="text-sm">{lang === "zh" ? n.zh : n.en}</span>
                 <span className="tabular-nums text-xs text-muted-foreground">{n.time}</span>
               </DropdownMenuItem>
             ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate("/app/notifications")} className="justify-center text-sm font-medium">
+              {t("actions.viewAll")}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -78,7 +82,7 @@ export function Topbar({ onMenu, onSearch }: { onMenu?: () => void; onSearch?: (
               <div className="tabular-nums text-xs text-muted-foreground">demo@example.com</div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/app/account")}>
               <User />
               {t("menu.account")}
             </DropdownMenuItem>

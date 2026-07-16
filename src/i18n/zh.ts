@@ -497,6 +497,27 @@ export const zh = {
     txnGroup: "近期交易",
     empty: "没有匹配结果",
   },
+  acc: {
+    title: "账户",
+    subtitle: "企业资料与认证状态 · 示例数据",
+    business: "企业资料",
+    kyb: "认证状态",
+    kybVerified: "已认证 KYB",
+    reverify: "查看 / 更新认证",
+    legalName: "企业名称",
+    uscc: "统一社会信用代码",
+    legalRep: "法定代表人",
+    country: "注册国家 / 地区",
+    entityType: "企业类型",
+    edit: "编辑资料",
+  },
+  notif: {
+    title: "通知",
+    subtitle: "账户与业务动态 · 示例数据",
+    markAll: "全部已读",
+    allRead: "已全部标记为已读（示例）",
+    empty: "暂无通知",
+  },
 };
 
 export type Dict = typeof zh;

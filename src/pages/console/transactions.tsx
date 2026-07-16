@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { Download, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 import { formatMoney } from "@/lib/format";
+import { exportCsv } from "@/lib/export-csv";
 import { ledger, type LedgerTxn } from "@/mock/more";
 import { PageHeader } from "@/components/console/page-header";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +45,16 @@ export default function TransactionsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <PageHeader title={t("txn.title")} subtitle={t("txn.subtitle")} />
+      <PageHeader
+        title={t("txn.title")}
+        subtitle={t("txn.subtitle")}
+        actions={
+          <Button size="sm" variant="outline" onClick={() => exportCsv("transactions.csv", ledger)}>
+            <Download />
+            {t("rep.export")}
+          </Button>
+        }
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs value={type} onValueChange={setType}>

@@ -19,6 +19,8 @@ import ReportsPage from "@/pages/console/reports";
 import TeamPage from "@/pages/console/team";
 import DevelopersPage from "@/pages/console/developers";
 import SettingsPage from "@/pages/console/settings";
+import AccountPage from "@/pages/console/account";
+import NotificationsPage from "@/pages/console/notifications";
 
 export function App() {
   return (
@@ -42,6 +44,8 @@ export function App() {
         <Route path="team" element={<TeamPage />} />
         <Route path="developers" element={<DevelopersPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="account" element={<AccountPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
         <Route path="settlement" element={<SettlementPage />} />
         {/* 旧业务线路径重定向到商户视角页面 */}
         <Route path="issuing" element={<Navigate to="/app/cards" replace />} />

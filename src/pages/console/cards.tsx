@@ -13,6 +13,8 @@ import { CardDrawer } from "@/components/pay/card-drawer";
 export default function CardsPage() {
   const { t } = useI18n();
   const [selected, setSelected] = useState<CardT | null>(null);
+  const [created, setCreated] = useState<CardT[]>([]);
+  const all = [...created, ...cards];
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -20,7 +22,7 @@ export default function CardsPage() {
         title={t("nav.cards")}
         subtitle={t("iss.subtitle")}
         actions={
-          <IssueCardDialog>
+          <IssueCardDialog onCreate={(c) => setCreated((prev) => [c, ...prev])}>
             <Button size="sm">
               <Plus />
               {t("iss.issueCard")}
@@ -30,7 +32,7 @@ export default function CardsPage() {
       />
 
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {cards.map((c) => {
+        {all.map((c) => {
           const pct = Math.min(100, Math.round((c.spent / c.limit) * 100));
           return (
             <button
