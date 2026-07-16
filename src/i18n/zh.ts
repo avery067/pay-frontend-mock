@@ -567,6 +567,9 @@ export const zh = {
     pay: "支付",
     secured: "由 Meridian 安全处理",
     success: "支付成功（示例）",
+    doneDesc: "款项已入商户账户，可返回控制台查看到账。",
+    backToLinks: "返回收款链接",
+    paidAlready: "该链接已完成支付。",
   },
   cmd: {
     placeholder: "搜索页面、操作、交易…",

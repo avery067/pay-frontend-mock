@@ -132,7 +132,7 @@ export default function PaymentLinksPage() {
                   </Button>
                 </div>
 
-                <Link to="/checkout" className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
+                <Link to={`/checkout?link=${sel.id}`} className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
                   <ExternalLink />
                   {t("links.preview")}
                 </Link>

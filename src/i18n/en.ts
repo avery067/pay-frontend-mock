@@ -573,6 +573,9 @@ export const en: Dict = {
     pay: "Pay",
     secured: "Securely processed by Meridian",
     success: "Payment successful (sample)",
+    doneDesc: "Funds credited to the merchant account — head back to the console to see it land.",
+    backToLinks: "Back to payment links",
+    paidAlready: "This link has already been paid.",
   },
   cmd: {
     placeholder: "Search pages, actions, transactions…",
