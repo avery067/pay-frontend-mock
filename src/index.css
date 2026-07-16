@@ -1,0 +1,19 @@
+@import "tailwindcss";
+@import "./styles/themes.css";
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  /* 标题用 display 字体；不加负字距（尊重 CJK 混排规范），
+     负字距只在纯拉丁的 .tracking-tight 处按需使用 */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+  }
+  /* 双语正文：CJK 行高更松 */
+  body {
+    line-height: 1.65;
+  }
+}

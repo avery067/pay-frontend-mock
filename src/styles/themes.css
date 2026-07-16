@@ -1,0 +1,319 @@
+/* ============================================================================
+   themes.css — 四套 fintech 审美锚点的 design token
+   Wise（默认） / Mercury·Ramp / Revolut·Monzo / Stripe·Linear
+   适配：Tailwind v4 + shadcn/ui。中英双语（拉丁字体在前，金额用 tabular-nums）。
+
+   用法：
+     1) src/index.css：  @import "tailwindcss";  然后  @import "./themes.css";
+     2) 选主题：         <html data-theme="wise">   （wise|mercury|revolut|stripe）
+     3) 切深色：         再加 class="dark"          <html data-theme="wise" class="dark">
+     4) 组件里用：        shadcn 语义类  bg-primary / text-muted-foreground / border
+                        fintech 扩展  bg-success / text-danger / text-pos / bg-brand
+                        或直接        var(--primary) / var(--gradient-brand)
+
+   token 契约：core = shadcn 标准变量；扩展 = fintech 语义
+     语义：--success/--warning/--danger/--info（各带 -foreground）
+     金额：--pos（涨/入）/--neg（跌/出）
+     品牌：--brand、--gradient-brand、--surface-deep（大面深色）
+   加主题：复制任一 [data-theme] 块，改 token，保持同一份变量名即可。
+   ============================================================================ */
+
+/* ---- 字体栈（双语）：拉丁在前 → 汉字回退；金额/数字走等宽 ---- */
+:root {
+  --font-body:    "Inter", "PingFang SC", "Source Han Sans SC", system-ui, sans-serif;
+  --font-display: "Inter Tight", "Inter", "PingFang SC", "Source Han Sans SC", system-ui, sans-serif;
+  --font-mono:    "Geist Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+
+/* ============ 1. WISE（旗舰·默认）— 亮绿 + 森林绿，透明亲和，圆润 ============ */
+:root,
+[data-theme="wise"] {
+  --radius: 0.875rem;                 /* 14px */
+  --font-display: "Inter Tight", "Inter", "PingFang SC", "Source Han Sans SC", sans-serif;
+
+  --background: #ffffff;  --foreground: #0e0f0c;
+  --card: #ffffff;        --card-foreground: #0e0f0c;
+  --popover: #ffffff;     --popover-foreground: #0e0f0c;
+
+  --primary: #9fe870;     --primary-foreground: #163300;   /* 亮绿 CTA + 森林绿字 */
+  --secondary: #e7f6d5;   --secondary-foreground: #163300;
+  --muted: #f4f6f2;       --muted-foreground: #6b6e66;
+  --accent: #163300;      --accent-foreground: #ffffff;    /* 森林绿深色面 */
+
+  --border: #e4e7e0;      --input: #e4e7e0;   --ring: #163300;
+
+  --brand: #9fe870;       --brand-strong: #163300;
+  --surface-deep: #163300; --surface-deep-foreground: #eef6e4;
+  --gradient-brand: linear-gradient(120deg, #9fe870 0%, #37d67a 100%);
+
+  --success: #1f8a3b; --success-foreground: #ffffff;
+  --warning: #b8770a; --warning-foreground: #ffffff;
+  --danger:  #c4361b; --danger-foreground:  #ffffff;
+  --info:    #1b5fbd; --info-foreground:    #ffffff;
+  --destructive: #c4361b; --destructive-foreground: #ffffff;
+  --pos: #1f8a3b; --neg: #c4361b;
+
+  --chart-1: #163300; --chart-2: #2f8f57; --chart-3: #9fe870;
+  --chart-4: #b8770a; --chart-5: #1b5fbd;
+}
+:root.dark,
+[data-theme="wise"].dark {
+  --background: #0f2200;  --foreground: #eef6e4;
+  --card: #163300;        --card-foreground: #eef6e4;
+  --popover: #163300;     --popover-foreground: #eef6e4;
+
+  --primary: #9fe870;     --primary-foreground: #0f2200;
+  --secondary: #1f4008;   --secondary-foreground: #d8f2bd;
+  --muted: #1d3a08;       --muted-foreground: #a6c58c;
+  --accent: #9fe870;      --accent-foreground: #0f2200;
+
+  --border: #274d12;      --input: #274d12;   --ring: #9fe870;
+
+  --brand: #9fe870;       --brand-strong: #9fe870;
+  --surface-deep: #0b1a00; --surface-deep-foreground: #eef6e4;
+  --gradient-brand: linear-gradient(120deg, #9fe870 0%, #37d67a 100%);
+
+  --success: #4ecb6e; --warning: #e0a53a; --danger: #ff6b52; --info: #6aa9f0;
+  --destructive: #ff6b52;
+  --pos: #4ecb6e; --neg: #ff6b52;
+  --chart-1: #9fe870; --chart-2: #4ecb6e; --chart-3: #37a05a;
+  --chart-4: #e0a53a; --chart-5: #6aa9f0;
+}
+
+/* ============ 2. MERCURY · RAMP — 近黑白灰 + 冷静钴蓝，极简高密度，8px ============ */
+[data-theme="mercury"] {
+  --radius: 0.5rem;
+  --font-display: "Inter", "PingFang SC", "Source Han Sans SC", sans-serif;
+
+  --background: #ffffff;  --foreground: #16181d;
+  --card: #ffffff;        --card-foreground: #16181d;
+  --popover: #ffffff;     --popover-foreground: #16181d;
+
+  --primary: #16181d;     --primary-foreground: #ffffff;   /* 极简近黑按钮 */
+  --secondary: #f0f1f4;   --secondary-foreground: #16181d;
+  --muted: #f6f7f9;       --muted-foreground: #5b6270;
+  --accent: #2563eb;      --accent-foreground: #ffffff;    /* 钴蓝，克制使用 */
+
+  --border: #e6e8ec;      --input: #e6e8ec;   --ring: #2563eb;
+
+  --brand: #2563eb;       --brand-strong: #16181d;
+  --surface-deep: #16181d; --surface-deep-foreground: #f0f1f4;
+  --gradient-brand: linear-gradient(120deg, #2563eb 0%, #4f46e5 100%);
+
+  --success: #0e7c3a; --success-foreground: #ffffff;
+  --warning: #b25e00; --warning-foreground: #ffffff;
+  --danger:  #c42b2b; --danger-foreground:  #ffffff;
+  --info:    #2563eb; --info-foreground:    #ffffff;
+  --destructive: #c42b2b; --destructive-foreground: #ffffff;
+  --pos: #0e7c3a; --neg: #c42b2b;
+
+  --chart-1: #2563eb; --chart-2: #0e7c3a; --chart-3: #7c3aed;
+  --chart-4: #b25e00; --chart-5: #0891b2;
+}
+[data-theme="mercury"].dark {
+  --background: #0c0d10;  --foreground: #e7e9ee;
+  --card: #14161b;        --card-foreground: #e7e9ee;
+  --popover: #14161b;     --popover-foreground: #e7e9ee;
+
+  --primary: #f2f3f5;     --primary-foreground: #0c0d10;   /* 深底上的浅按钮 */
+  --secondary: #1c1f26;   --secondary-foreground: #e7e9ee;
+  --muted: #191c22;       --muted-foreground: #9096a3;
+  --accent: #3b82f6;      --accent-foreground: #ffffff;
+
+  --border: #23262d;      --input: #23262d;   --ring: #3b82f6;
+
+  --brand: #3b82f6;       --brand-strong: #f2f3f5;
+  --surface-deep: #060708; --surface-deep-foreground: #e7e9ee;
+  --gradient-brand: linear-gradient(120deg, #3b82f6 0%, #6366f1 100%);
+
+  --success: #35c46a; --warning: #d98a2b; --danger: #e5595a; --info: #3b82f6;
+  --destructive: #e5595a;
+  --pos: #35c46a; --neg: #e5595a;
+  --chart-1: #3b82f6; --chart-2: #35c46a; --chart-3: #a78bfa;
+  --chart-4: #d98a2b; --chart-5: #22d3ee;
+}
+
+/* ============ 3. REVOLUT · MONZO — 珊瑚单色主导，年轻大胆，圆润 20px ============ */
+[data-theme="revolut"] {
+  --radius: 1.25rem;
+  --font-display: "Inter Tight", "Inter", "PingFang SC", "Source Han Sans SC", sans-serif;
+
+  --background: #ffffff;  --foreground: #0b0b0f;
+  --card: #ffffff;        --card-foreground: #0b0b0f;
+  --popover: #ffffff;     --popover-foreground: #0b0b0f;
+
+  --primary: #ff3b6b;     --primary-foreground: #ffffff;   /* 珊瑚 */
+  --secondary: #ffe7ee;   --secondary-foreground: #a80f38;
+  --muted: #f4f4f7;       --muted-foreground: #6a6a78;
+  --accent: #6c5ce7;      --accent-foreground: #ffffff;    /* 支撑用紫，极少量 */
+
+  --border: #ececf1;      --input: #ececf1;   --ring: #ff3b6b;
+
+  --brand: #ff3b6b;       --brand-strong: #a80f38;
+  --surface-deep: #17171e; --surface-deep-foreground: #f3f3f7;
+  --gradient-brand: linear-gradient(120deg, #ff3b6b 0%, #ff7a45 100%);
+
+  --success: #17a672; --success-foreground: #ffffff;
+  --warning: #f5a623; --warning-foreground: #1a1200;
+  --danger:  #e5484d; --danger-foreground:  #ffffff;
+  --info:    #5b6cff; --info-foreground:    #ffffff;
+  --destructive: #e5484d; --destructive-foreground: #ffffff;
+  --pos: #17a672; --neg: #e5484d;
+
+  --chart-1: #ff3b6b; --chart-2: #6c5ce7; --chart-3: #17a672;
+  --chart-4: #f5a623; --chart-5: #5b6cff;
+}
+[data-theme="revolut"].dark {
+  --background: #0b0b0f;  --foreground: #f3f3f7;
+  --card: #17171e;        --card-foreground: #f3f3f7;
+  --popover: #17171e;     --popover-foreground: #f3f3f7;
+
+  --primary: #ff4f7b;     --primary-foreground: #1a0410;
+  --secondary: #2a1620;   --secondary-foreground: #ffc4d4;
+  --muted: #1c1c24;       --muted-foreground: #9a9aac;
+  --accent: #8b7bff;      --accent-foreground: #12071f;
+
+  --border: #26262f;      --input: #26262f;   --ring: #ff4f7b;
+
+  --brand: #ff4f7b;       --brand-strong: #ff4f7b;
+  --surface-deep: #050507; --surface-deep-foreground: #f3f3f7;
+  --gradient-brand: linear-gradient(120deg, #ff4f7b 0%, #ff8a5c 100%);
+
+  --success: #2ecb8f; --warning: #ffb648; --danger: #ff5c60; --info: #7b8cff;
+  --destructive: #ff5c60;
+  --pos: #2ecb8f; --neg: #ff5c60;
+  --chart-1: #ff4f7b; --chart-2: #8b7bff; --chart-3: #2ecb8f;
+  --chart-4: #ffb648; --chart-5: #7b8cff;
+}
+
+/* ============ 4. STRIPE · LINEAR — 靛蓝 + 渐变，精工科技，8px（亮基线 / Linear 暗）====== */
+[data-theme="stripe"] {
+  --radius: 0.5rem;
+  --font-display: "Inter", "PingFang SC", "Source Han Sans SC", sans-serif;
+
+  --background: #ffffff;  --foreground: #0a0a23;
+  --card: #ffffff;        --card-foreground: #0a0a23;
+  --popover: #ffffff;     --popover-foreground: #0a0a23;
+
+  --primary: #635bff;     --primary-foreground: #ffffff;   /* Stripe 靛蓝 */
+  --secondary: #f0f0fb;   --secondary-foreground: #3a3a8c;
+  --muted: #f6f6fb;       --muted-foreground: #4f5473;
+  --accent: #635bff;      --accent-foreground: #ffffff;
+
+  --border: #e6e6f0;      --input: #e6e6f0;   --ring: #635bff;
+
+  --brand: #635bff;       --brand-strong: #0a0a23;
+  --surface-deep: #0a0a23; --surface-deep-foreground: #eaeafb;
+  --gradient-brand: linear-gradient(120deg, #635bff 0%, #00d4ff 50%, #ff80b5 100%);
+
+  --success: #22a06b; --success-foreground: #ffffff;
+  --warning: #cd7b00; --warning-foreground: #ffffff;
+  --danger:  #df1b41; --danger-foreground:  #ffffff;
+  --info:    #635bff; --info-foreground:    #ffffff;
+  --destructive: #df1b41; --destructive-foreground: #ffffff;
+  --pos: #22a06b; --neg: #df1b41;
+
+  --chart-1: #635bff; --chart-2: #00d4ff; --chart-3: #ff80b5;
+  --chart-4: #22a06b; --chart-5: #cd7b00;
+}
+[data-theme="stripe"].dark {
+  --background: #08090a;  --foreground: #e6e7eb;
+  --card: #0f1013;        --card-foreground: #e6e7eb;
+  --popover: #0f1013;     --popover-foreground: #e6e7eb;
+
+  --primary: #7c74ff;     --primary-foreground: #ffffff;
+  --secondary: #17181d;   --secondary-foreground: #e6e7eb;
+  --muted: #16171b;       --muted-foreground: #9295a1;
+  --accent: #00d4ff;      --accent-foreground: #08090a;
+
+  --border: #1e2024;      --input: #1e2024;   --ring: #7c74ff;
+
+  --brand: #7c74ff;       --brand-strong: #7c74ff;
+  --surface-deep: #030304; --surface-deep-foreground: #e6e7eb;
+  --gradient-brand: linear-gradient(120deg, #7c74ff 0%, #00d4ff 50%, #ff80b5 100%);
+
+  --success: #30c57f; --warning: #f5b72f; --danger: #ff5c72; --info: #7c74ff;
+  --destructive: #ff5c72;
+  --pos: #30c57f; --neg: #ff5c72;
+  --chart-1: #7c74ff; --chart-2: #00d4ff; --chart-3: #ff80b5;
+  --chart-4: #30c57f; --chart-5: #f5b72f;
+}
+
+/* ---- Tailwind v4：把 CSS 变量映射成工具类（bg-primary / text-success / rounded-lg …）---- */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* fintech 扩展 */
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-surface-deep: var(--surface-deep);
+  --color-surface-deep-foreground: var(--surface-deep-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-pos: var(--pos);
+  --color-neg: var(--neg);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+}
+
+/* ---- 基础层：全局字体、边框、金额等宽、动效尊重 ---- */
+@layer base {
+  * { border-color: var(--border); }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* 金额 / 编号 / 数据：等宽拉丁数字，表格能对齐 */
+  .amount, .tnum, [data-num] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    font-family: var(--font-body);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

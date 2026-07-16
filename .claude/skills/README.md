@@ -13,7 +13,7 @@
 | 顺序 | Skill | 作用 | 何时读 |
 |---|---|---|---|
 | 1 | **`frontend-design`** | 通用设计地基：避开"一眼假"的 AI 模板脸，做有意图的取舍 | 任何页面开工前 |
-| 2 | **`fintech-payment-ui`** | 支付域 UX 模式 + 4 套 fintech 审美锚点；含可用的 `themes.css` | 做支付相关界面时 |
+| 2 | **`fintech-payment-ui`** | 支付域 UX 模式 + 4 套 fintech 审美锚点 + 双语排版；含可用的 `themes.css` | 做支付相关界面时 |
 | 3 | **`design-compare`** | "多对比"工作流：一次并列产出多套方案供挑选，并落库决策 | 需要比选方案 / 定风格时 |
 | 4 | **`mock-scaffold`** | React+Vite+Tailwind v4+shadcn 脚手架约定、假数据、双语与主题接入 | 搭/扩原型工程时 |
 
