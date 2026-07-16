@@ -73,6 +73,12 @@ export default function BalancesPage() {
                     {t("bal.pending")} <span className="tabular-nums">{formatAmount(b.pending)}</span>
                   </>
                 )}
+                {b.reserved && b.reserved > 0 ? (
+                  <>
+                    {" · "}
+                    {t("acq.kpiReserved")} <span className="tabular-nums">{formatAmount(b.reserved)}</span>
+                  </>
+                ) : null}
               </div>
               <div className="mt-4 flex gap-2">
                 <NewSettlementDialog>

@@ -12,7 +12,7 @@ import {
 } from "recharts";
 import { useI18n } from "@/i18n";
 import { formatAmount, formatMoney } from "@/lib/format";
-import { acquiringTxns, payouts, type AcquiringTxn } from "@/mock/data";
+import { useMock } from "@/mock/store";
 import { volumeSeries } from "@/mock/more";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +33,8 @@ const kpis: { key: string; value: string; delta: string; variant: BadgeVariant }
 
 export default function OverviewPage() {
   const { t } = useI18n();
-  const [selected, setSelected] = useState<AcquiringTxn | null>(null);
+  const { acqTxns, batches } = useMock();
+  const [order, setOrder] = useState<string | null>(null);
   const tooltipStyle = {
     background: "var(--popover)",
     border: "1px solid var(--border)",
@@ -156,10 +157,10 @@ export default function OverviewPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {acquiringTxns.slice(0, 5).map((x) => (
+                  {acqTxns.slice(0, 5).map((x) => (
                     <tr
                       key={x.order}
-                      onClick={() => setSelected(x)}
+                      onClick={() => setOrder(x.order)}
                       className="cursor-pointer border-b border-border/60 transition last:border-0 hover:bg-muted/50"
                     >
                       <td className="px-6 py-3 font-medium">{x.merchant}</td>
@@ -181,10 +182,10 @@ export default function OverviewPage() {
               <CardTitle>{t("console.payoutsTitle")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {payouts.map((p) => (
-                <div key={p.batch} className="flex items-center justify-between text-sm">
-                  <span className="tabular-nums text-muted-foreground">{p.date}</span>
-                  <span className="tabular-nums font-medium">{formatMoney(p.amount)}</span>
+              {batches.filter((b) => b.status !== "credited").map((b) => (
+                <div key={b.id} className="flex items-center justify-between text-sm">
+                  <span className="tabular-nums text-muted-foreground">T+{b.termDays} · {b.payoutDate}</span>
+                  <span className="tabular-nums font-medium">{formatMoney(b.net)}</span>
                 </div>
               ))}
             </CardContent>
@@ -212,7 +213,7 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      <AcquiringTxnDrawer item={selected} onOpenChange={(o) => { if (!o) setSelected(null); }} />
+      <AcquiringTxnDrawer order={order} onOpenChange={(o) => { if (!o) setOrder(null); }} />
     </div>
   );
 }

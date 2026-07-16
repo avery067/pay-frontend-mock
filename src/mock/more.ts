@@ -1,9 +1,9 @@
 import type { PayStatus } from "./data";
 
 // 多币种余额（示例）
-export type Balance = { currency: string; available: number; pending: number; usdEq: number };
+export type Balance = { currency: string; available: number; pending: number; usdEq: number; reserved?: number };
 export const balances: Balance[] = [
-  { currency: "USD", available: 842190.55, pending: 12400, usdEq: 854590.55 },
+  { currency: "USD", available: 842190.55, pending: 12400, reserved: 1252, usdEq: 855842.55 },
   { currency: "CNY", available: 1288650.0, pending: 45000, usdEq: 185700.0 },
   { currency: "EUR", available: 210480.0, pending: 3200, usdEq: 232900.0 },
   { currency: "GBP", available: 54200.0, pending: 0, usdEq: 68870.0 },
@@ -152,4 +152,83 @@ export const statements: Statement[] = [
   { period: "2026-06", txns: 1284, volume: 3820500, fees: 41200, net: 3779300 },
   { period: "2026-05", txns: 1156, volume: 3210400, fees: 35600, net: 3174800 },
   { period: "2026-04", txns: 998, volume: 2740900, fees: 30100, net: 2710800 },
+];
+
+// ── 收单闭环（acquiring）：交易生命周期 + 结算批次 + 打款 + 储备金 ──
+export type AcqStatus =
+  | "authorized" | "captured" | "in_batch" | "settling" | "paid_out" | "credited"
+  | "voided" | "refunded" | "disputed" | "failed";
+export type AcqTxn = {
+  order: string;
+  merchant: string;
+  method: string;
+  gross: number;
+  fee: number;
+  reserve: number;
+  net: number;
+  currency: string;
+  captureMode: "auto" | "manual";
+  stage: 0 | 1 | 2 | 3 | 4 | 5;
+  status: AcqStatus;
+  time: string;
+  batchId?: string;
+};
+export const acqTxnsSeed: AcqTxn[] = [
+  { order: "OD-88231", merchant: "Contoso（示例）", method: "Visa •••• 4242", gross: 12000, fee: 348, reserve: 0, net: 11652, currency: "USD", captureMode: "manual", stage: 0, status: "authorized", time: "09:24" },
+  { order: "OD-88230", merchant: "Umbrella（示例）", method: "Mastercard •••• 5100", gross: 2600, fee: 75.4, reserve: 0, net: 2524.6, currency: "USD", captureMode: "manual", stage: 0, status: "authorized", time: "09:12" },
+  { order: "OD-88229", merchant: "Acme Inc.（示例）", method: "Visa •••• 4242", gross: 1200, fee: 34.8, reserve: 0, net: 1165.2, currency: "USD", captureMode: "auto", stage: 1, status: "captured", time: "08:57" },
+  { order: "OD-88228", merchant: "示例商户 001", method: "Alipay", gross: 3450, fee: 20.7, reserve: 0, net: 3429.3, currency: "USD", captureMode: "auto", stage: 1, status: "captured", time: "08:30" },
+  { order: "OD-88227", merchant: "Globex（示例）", method: "Mastercard •••• 5100", gross: 880, fee: 25.5, reserve: 70.4, net: 784.1, currency: "USD", captureMode: "auto", stage: 2, status: "in_batch", batchId: "PO-20260718", time: "08:02" },
+  { order: "OD-88226", merchant: "Stark Ind.（示例）", method: "Amex •••• 1004", gross: 9800, fee: 284.2, reserve: 0, net: 9515.8, currency: "USD", captureMode: "auto", stage: 3, status: "settling", batchId: "PO-20260717", time: "07:41" },
+  { order: "OD-88225", merchant: "示例网店", method: "WeChat Pay", gross: 220, fee: 1.3, reserve: 0, net: 218.7, currency: "USD", captureMode: "auto", stage: 0, status: "refunded", time: "07:20" },
+  { order: "OD-88224", merchant: "Wayne Co.（示例）", method: "Visa •••• 9002", gross: 640, fee: 18.6, reserve: 0, net: 621.4, currency: "USD", captureMode: "auto", stage: 0, status: "disputed", time: "06:40" },
+  { order: "OD-88220", merchant: "Initech（示例）", method: "Visa •••• 7788", gross: 5400, fee: 156.6, reserve: 432, net: 4811.4, currency: "USD", captureMode: "auto", stage: 5, status: "credited", batchId: "PO-20260710", time: "昨日" },
+];
+
+export type BatchStatus = "scheduled" | "settling" | "paid_out" | "credited";
+export type SettlementBatch = {
+  id: string;
+  currency: string;
+  saleDate: string;
+  payoutDate: string;
+  termDays: number;
+  gross: number;
+  fee: number;
+  reserve: number;
+  net: number;
+  txnOrders: string[];
+  status: BatchStatus;
+  instant: boolean;
+};
+export const batchesSeed: SettlementBatch[] = [
+  { id: "PO-20260717", currency: "USD", saleDate: "07-16", payoutDate: "07-17", termDays: 1, gross: 9800, fee: 284.2, reserve: 0, net: 9515.8, txnOrders: ["OD-88226"], status: "scheduled", instant: false },
+  { id: "PO-20260718", currency: "USD", saleDate: "07-16", payoutDate: "07-18", termDays: 2, gross: 880, fee: 25.5, reserve: 70.4, net: 784.1, txnOrders: ["OD-88227"], status: "scheduled", instant: false },
+  { id: "PO-20260723", currency: "USD", saleDate: "07-15", payoutDate: "07-23", termDays: 7, gross: 128900, fee: 3867, reserve: 0, net: 125033, txnOrders: [], status: "scheduled", instant: false },
+];
+
+export type PayoutRecord = {
+  id: string;
+  batchId: string;
+  amount: number;
+  currency: string;
+  method: "standard" | "instant";
+  fee: number;
+  status: "in_transit" | "paid";
+};
+export const payoutRecordsSeed: PayoutRecord[] = [
+  { id: "PAY-20260710-01", batchId: "PO-20260710", amount: 4811.4, currency: "USD", method: "standard", fee: 0, status: "paid" },
+];
+
+export type ReserveHold = {
+  id: string;
+  batchId: string;
+  amount: number;
+  currency: string;
+  heldOn: string;
+  releaseOn: string;
+  released: boolean;
+};
+export const reservesSeed: ReserveHold[] = [
+  { id: "RSV-0007", batchId: "PO-20260710", amount: 432, currency: "USD", heldOn: "07-10", releaseOn: "08-09", released: false },
+  { id: "RSV-0005", batchId: "PO-20260620", amount: 820, currency: "USD", heldOn: "06-20", releaseOn: "07-20", released: false },
 ];
