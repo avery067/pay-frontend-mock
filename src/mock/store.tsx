@@ -27,6 +27,8 @@ import {
   type LedgerTxn,
   paymentLinks as linksSeed,
   type PayLink,
+  recipients as recipientsSeed,
+  type Recipient,
 } from "./more";
 import { cards as initialCards, notifications as notificationsSeed, type Card } from "./data";
 
@@ -107,6 +109,9 @@ type MockValue = {
   paymentLinks: PayLink[];
   createLink: (p: { name: string; amount: number; currency: string; type: "once" | "reuse" }) => void;
   collectLink: (id: string) => void;
+  // 收款人
+  recipients: Recipient[];
+  addRecipient: (p: { name: string; account: string; country: string; currency: string }) => void;
   // 通知
   notifications: Notif[];
   unreadCount: number;
@@ -149,6 +154,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [notifs, setNotifs] = useState<Notif[]>(seedNotifs);
   const [ledger, setLedger] = useState<LedgerTxn[]>(ledgerSeed);
   const [links, setLinks] = useState<PayLink[]>(linksSeed);
+  const [recipientList, setRecipientList] = useState<Recipient[]>(recipientsSeed);
 
   const recordsRef = useRef(records);
   recordsRef.current = records;
@@ -169,6 +175,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const ledgerSeqRef = useRef(90231);
   const linkSeqRef = useRef(3021);
   const acqSeqRef = useRef(88231);
+  const rcpSeqRef = useRef(100);
 
   // ── 通知：loop 事件实时推送到铃铛 + 通知页 ──
   // 注：id 在更新函数外自增，避免 StrictMode 双调用导致序号跳号（保持更新函数纯净）
@@ -391,6 +398,12 @@ export function MockProvider({ children }: { children: ReactNode }) {
     if (l.type === "once") setLinks((prev) => prev.map((x) => (x.id === id ? { ...x, status: "paid" } : x)));
   };
 
+  // ── 收款人：新增受益人（付款对话框实时可选）──
+  const addRecipient: MockValue["addRecipient"] = ({ name, account, country, currency }) => {
+    const rcp: Recipient = { id: `r${++rcpSeqRef.current}`, name, account, country, currency };
+    setRecipientList((prev) => [rcp, ...prev]);
+  };
+
   // 一键重置所有示例状态到初始（原型 mock）
   const reset = () => {
     setBalances(initialBalances);
@@ -406,6 +419,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setNotifs(seedNotifs);
     setLedger(ledgerSeed);
     setLinks(linksSeed);
+    setRecipientList(recipientsSeed);
   };
 
   // 自动推进：结汇处理中的记录 + 已开始结算的批次
@@ -488,6 +502,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
         paymentLinks: links,
         createLink,
         collectLink,
+        recipients: recipientList,
+        addRecipient,
         notifications: notifs,
         unreadCount,
         markNotifsRead,

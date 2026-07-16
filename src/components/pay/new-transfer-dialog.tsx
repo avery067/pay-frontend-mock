@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from "react";
 import { useI18n } from "@/i18n";
-import { recipients } from "@/mock/more";
 import { useMock } from "@/mock/store";
 import { CURRENCIES } from "@/lib/quote";
 import { formatMoney } from "@/lib/format";
@@ -18,12 +17,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 
-export function NewTransferDialog({ children }: { children: ReactNode }) {
+export function NewTransferDialog({ children, defaultRid }: { children: ReactNode; defaultRid?: string }) {
   const { t } = useI18n();
   const { toast } = useToast();
-  const { balances, transfer } = useMock();
+  const { balances, transfer, recipients } = useMock();
   const [open, setOpen] = useState(false);
-  const [rid, setRid] = useState(recipients[0]?.id ?? "");
+  const [rid, setRid] = useState(defaultRid ?? recipients[0]?.id ?? "");
   const [currency, setCurrency] = useState("USD");
   const [amount, setAmount] = useState(5000);
   const [note, setNote] = useState("");

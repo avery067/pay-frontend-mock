@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Plus, Send } from "lucide-react";
 import { useI18n } from "@/i18n";
-import { recipients } from "@/mock/more";
+import { useMock } from "@/mock/store";
+import { CURRENCIES } from "@/lib/quote";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,16 +17,32 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { NewTransferDialog } from "@/components/pay/new-transfer-dialog";
 import { useToast } from "@/components/ui/toast";
 
 export default function RecipientsPage() {
   const { t } = useI18n();
   const { toast } = useToast();
+  const { recipients, addRecipient } = useMock();
   const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [account, setAccount] = useState("");
+  const [country, setCountry] = useState("");
+  const [currency, setCurrency] = useState("USD");
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    addRecipient({
+      name: name.trim() || t("rcp.namePh"),
+      account: account.trim() || "•••• 0000",
+      country: country.trim() || "—",
+      currency,
+    });
     setOpen(false);
+    setName("");
+    setAccount("");
+    setCountry("");
+    setCurrency("USD");
     toast(t("rcp.added"));
   };
 
@@ -49,15 +66,28 @@ export default function RecipientsPage() {
               <form onSubmit={submit} className="space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="rname">{t("rcp.name")}</Label>
-                  <Input id="rname" placeholder={t("rcp.namePh")} required />
+                  <Input id="rname" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("rcp.namePh")} required />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="racc">{t("rcp.account")}</Label>
-                  <Input id="racc" placeholder={t("rcp.accountPh")} required />
+                  <Input id="racc" value={account} onChange={(e) => setAccount(e.target.value)} placeholder={t("rcp.accountPh")} required />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="rcountry">{t("rcp.country")}</Label>
-                  <Input id="rcountry" placeholder="US / CN / EU" />
+                <div className="grid grid-cols-[1fr_7rem] gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rcountry">{t("rcp.country")}</Label>
+                    <Input id="rcountry" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="US / CN / EU" />
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <select
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                    >
+                      {CURRENCIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <DialogFooter>
                   <DialogClose asChild>
@@ -94,10 +124,12 @@ export default function RecipientsPage() {
                     </td>
                     <td className="px-3 py-3">{r.country}</td>
                     <td className="px-6 py-3 text-right">
-                      <Button size="sm" variant="outline" onClick={() => toast(t("rcp.pay"))}>
-                        <Send />
-                        {t("rcp.pay")}
-                      </Button>
+                      <NewTransferDialog defaultRid={r.id}>
+                        <Button size="sm" variant="outline">
+                          <Send />
+                          {t("rcp.pay")}
+                        </Button>
+                      </NewTransferDialog>
                     </td>
                   </tr>
                 ))}
