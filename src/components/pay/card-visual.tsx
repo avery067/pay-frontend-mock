@@ -1,5 +1,6 @@
 import { Snowflake, Wifi } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CardBrand } from "./card-brand";
 
 export function CardVisual({
   name,
@@ -43,17 +44,17 @@ export function CardVisual({
             <Wifi className="size-4 rotate-90 opacity-70" />
           )}
         </div>
-        <div>
-          <div
-            className="text-lg tracking-[0.2em] tabular-nums"
-            style={{ fontFamily: "var(--font-mono)" }}
-          >
-            •••• {last4}
+        <div className="flex items-end justify-between">
+          <div>
+            <div
+              className="text-lg tracking-[0.2em] tabular-nums"
+              style={{ fontFamily: "var(--font-mono)" }}
+            >
+              •••• {last4}
+            </div>
+            <div className="mt-1.5 tabular-nums text-xs opacity-75">{currency}</div>
           </div>
-          <div className="mt-1.5 flex items-center justify-between text-xs opacity-75">
-            <span className="tabular-nums">{currency}</span>
-            <span className="uppercase tracking-wider">{brand}</span>
-          </div>
+          <CardBrand brand={brand} className="h-6 w-auto" />
         </div>
       </div>
     </div>

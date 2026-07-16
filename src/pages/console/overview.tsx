@@ -1,8 +1,18 @@
 import { useState } from "react";
 import { Calendar, ChevronRight, Plus, TrendingUp } from "lucide-react";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts";
 import { useI18n } from "@/i18n";
 import { formatAmount, formatMoney } from "@/lib/format";
 import { acquiringTxns, payouts, type AcquiringTxn } from "@/mock/data";
+import { volumeSeries } from "@/mock/more";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +32,13 @@ const kpis: { key: string; value: string; delta: string; variant: BadgeVariant }
 export default function OverviewPage() {
   const { t } = useI18n();
   const [selected, setSelected] = useState<AcquiringTxn | null>(null);
+  const tooltipStyle = {
+    background: "var(--popover)",
+    border: "1px solid var(--border)",
+    borderRadius: 12,
+    color: "var(--popover-foreground)",
+    fontSize: 12,
+  } as const;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -65,6 +82,32 @@ export default function OverviewPage() {
           </Card>
         ))}
       </div>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between">
+          <CardTitle>{t("rep.volumeTrend")}</CardTitle>
+          <span className="text-sm text-muted-foreground">{t("console.range")}</span>
+        </CardHeader>
+        <CardContent>
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={volumeSeries} margin={{ left: -12, right: 8, top: 4, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gvOverview" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="var(--brand)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <XAxis dataKey="d" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={48} tickFormatter={(v: number) => `${v / 1000}k`} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => formatMoney(Number(v))} />
+                <Area type="monotone" dataKey="v" stroke="var(--brand-strong)" strokeWidth={2} fill="url(#gvOverview)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -147,12 +190,7 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      <AcquiringTxnDrawer
-        item={selected}
-        onOpenChange={(o) => {
-          if (!o) setSelected(null);
-        }}
-      />
+      <AcquiringTxnDrawer item={selected} onOpenChange={(o) => { if (!o) setSelected(null); }} />
     </div>
   );
 }

@@ -3,30 +3,31 @@ import { Plus } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { formatAmount, formatMoney } from "@/lib/format";
 import { cards, type Card as CardT } from "@/mock/data";
+import { PageHeader } from "@/components/console/page-header";
 import { Button } from "@/components/ui/button";
 import { CardVisual } from "@/components/pay/card-visual";
 import { StatusBadge } from "@/components/pay/status-badge";
 import { IssueCardDialog } from "@/components/pay/issue-card-dialog";
 import { CardDrawer } from "@/components/pay/card-drawer";
 
-export default function IssuingPage() {
+export default function CardsPage() {
   const { t } = useI18n();
   const [selected, setSelected] = useState<CardT | null>(null);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">{t("iss.title")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("iss.subtitle")}</p>
-        </div>
-        <IssueCardDialog>
-          <Button size="sm">
-            <Plus />
-            {t("iss.issueCard")}
-          </Button>
-        </IssueCardDialog>
-      </div>
+      <PageHeader
+        title={t("nav.cards")}
+        subtitle={t("iss.subtitle")}
+        actions={
+          <IssueCardDialog>
+            <Button size="sm">
+              <Plus />
+              {t("iss.issueCard")}
+            </Button>
+          </IssueCardDialog>
+        }
+      />
 
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {cards.map((c) => {
@@ -37,13 +38,7 @@ export default function IssuingPage() {
               onClick={() => setSelected(c)}
               className="rounded-2xl border border-border bg-card p-4 text-left transition hover:shadow-md"
             >
-              <CardVisual
-                name={c.name}
-                brand={c.brand}
-                last4={c.last4}
-                currency={c.currency}
-                frozen={c.status === "frozen"}
-              />
+              <CardVisual name={c.name} brand={c.brand} last4={c.last4} currency={c.currency} frozen={c.status === "frozen"} />
               <div className="mt-3 flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">{c.name}</div>
@@ -63,12 +58,7 @@ export default function IssuingPage() {
         })}
       </div>
 
-      <CardDrawer
-        item={selected}
-        onOpenChange={(o) => {
-          if (!o) setSelected(null);
-        }}
-      />
+      <CardDrawer item={selected} onOpenChange={(o) => { if (!o) setSelected(null); }} />
     </div>
   );
 }

@@ -2,12 +2,13 @@ import { useState } from "react";
 import { useI18n } from "@/i18n";
 import { formatMoney } from "@/lib/format";
 import { acquiringTxns, payouts, type AcquiringTxn } from "@/mock/data";
+import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/pay/status-badge";
 import { AcquiringTxnDrawer } from "@/components/pay/acquiring-txn-drawer";
 
-export default function AcquiringPage() {
+export default function PaymentsPage() {
   const { t } = useI18n();
   const [selected, setSelected] = useState<AcquiringTxn | null>(null);
 
@@ -20,10 +21,7 @@ export default function AcquiringPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">{t("acq.title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("acq.subtitle")}</p>
-      </div>
+      <PageHeader title={t("nav.payments")} subtitle={t("acq.subtitle")} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((k) => (
@@ -113,12 +111,7 @@ export default function AcquiringPage() {
         </TabsContent>
       </Tabs>
 
-      <AcquiringTxnDrawer
-        item={selected}
-        onOpenChange={(o) => {
-          if (!o) setSelected(null);
-        }}
-      />
+      <AcquiringTxnDrawer item={selected} onOpenChange={(o) => { if (!o) setSelected(null); }} />
     </div>
   );
 }

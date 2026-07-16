@@ -3,10 +3,19 @@ import LandingPage from "@/pages/landing";
 import LoginPage from "@/pages/login";
 import { ConsoleLayout } from "@/components/layout/console-layout";
 import OverviewPage from "@/pages/console/overview";
-import SettlementPage from "@/pages/console/settlement";
-import IssuingPage from "@/pages/console/issuing";
-import AcquiringPage from "@/pages/console/acquiring";
-import PlaceholderPage from "@/pages/console/placeholder";
+import BalancesPage from "@/pages/console/balances";
+import TransactionsPage from "@/pages/console/transactions";
+import ConvertPage from "@/pages/console/convert";
+import TransfersPage from "@/pages/console/transfers";
+import RecipientsPage from "@/pages/console/recipients";
+import PaymentsPage from "@/pages/console/payments";
+import PaymentLinksPage from "@/pages/console/payment-links";
+import DisputesPage from "@/pages/console/disputes";
+import CardsPage from "@/pages/console/cards";
+import ReportsPage from "@/pages/console/reports";
+import TeamPage from "@/pages/console/team";
+import DevelopersPage from "@/pages/console/developers";
+import SettingsPage from "@/pages/console/settings";
 
 export function App() {
   return (
@@ -15,10 +24,23 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/app" element={<ConsoleLayout />}>
         <Route index element={<OverviewPage />} />
-        <Route path="settlement" element={<SettlementPage />} />
-        <Route path="issuing" element={<IssuingPage />} />
-        <Route path="acquiring" element={<AcquiringPage />} />
-        <Route path="settings" element={<PlaceholderPage sectionKey="nav.settings" />} />
+        <Route path="balances" element={<BalancesPage />} />
+        <Route path="transactions" element={<TransactionsPage />} />
+        <Route path="convert" element={<ConvertPage />} />
+        <Route path="transfers" element={<TransfersPage />} />
+        <Route path="recipients" element={<RecipientsPage />} />
+        <Route path="payments" element={<PaymentsPage />} />
+        <Route path="links" element={<PaymentLinksPage />} />
+        <Route path="disputes" element={<DisputesPage />} />
+        <Route path="cards" element={<CardsPage />} />
+        <Route path="reports" element={<ReportsPage />} />
+        <Route path="team" element={<TeamPage />} />
+        <Route path="developers" element={<DevelopersPage />} />
+        <Route path="settings" element={<SettingsPage />} />
+        {/* 旧业务线路径重定向到商户视角页面 */}
+        <Route path="settlement" element={<Navigate to="/app/convert" replace />} />
+        <Route path="issuing" element={<Navigate to="/app/cards" replace />} />
+        <Route path="acquiring" element={<Navigate to="/app/payments" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
