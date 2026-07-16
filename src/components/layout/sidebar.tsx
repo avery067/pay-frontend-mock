@@ -14,6 +14,7 @@ import {
   BarChart3,
   UsersRound,
   Code2,
+  FileText,
   Settings,
   Building2,
   type LucideIcon,
@@ -51,6 +52,7 @@ const GROUPS: Group[] = [
     label: "nav.groupManage",
     items: [
       { to: "/app/reports", icon: BarChart3, key: "nav.reports" },
+      { to: "/app/statements", icon: FileText, key: "nav.statements" },
       { to: "/app/team", icon: UsersRound, key: "nav.team" },
       { to: "/app/developers", icon: Code2, key: "nav.developers" },
     ],
@@ -66,7 +68,7 @@ function itemClass({ isActive }: { isActive: boolean }) {
   );
 }
 
-export function Sidebar({ className }: { className?: string }) {
+export function Sidebar({ className, onNavigate }: { className?: string; onNavigate?: () => void }) {
   const { t } = useI18n();
   return (
     <aside className={cn("flex h-full w-60 flex-col border-r border-border bg-card", className)}>
@@ -84,7 +86,7 @@ export function Sidebar({ className }: { className?: string }) {
             )}
             <div className="space-y-0.5">
               {g.items.map((it) => (
-                <NavLink key={it.to} to={it.to} end={it.end} className={itemClass}>
+                <NavLink key={it.to} to={it.to} end={it.end} onClick={onNavigate} className={itemClass}>
                   <it.icon className="size-[18px]" />
                   {t(it.key)}
                 </NavLink>
@@ -95,7 +97,7 @@ export function Sidebar({ className }: { className?: string }) {
       </nav>
 
       <div className="shrink-0 border-t border-border p-3">
-        <NavLink to="/app/settings" className={itemClass}>
+        <NavLink to="/app/settings" onClick={onNavigate} className={itemClass}>
           <Settings className="size-[18px]" />
           {t("nav.settings")}
         </NavLink>

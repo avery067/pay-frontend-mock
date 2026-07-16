@@ -34,11 +34,11 @@ export function ConsoleLayout() {
           <button
             type="button"
             aria-label="close"
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/40 animate-[overlay-in_150ms_ease-out]"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute left-0 top-0 h-full shadow-xl">
-            <Sidebar />
+          <div className="absolute left-0 top-0 h-full shadow-xl animate-[sheet-in-left_260ms_cubic-bezier(0.32,0.72,0,1)]">
+            <Sidebar onNavigate={() => setOpen(false)} />
           </div>
         </div>
       )}

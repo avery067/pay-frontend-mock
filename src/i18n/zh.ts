@@ -34,6 +34,7 @@ export const zh = {
     cards: "卡片",
     reports: "报表",
     team: "团队",
+    statements: "对账单",
   },
   landing: {
     eyebrow: "跨境支付基础设施",
@@ -352,6 +353,15 @@ export const zh = {
     roleOwner: "所有者",
     roleAdmin: "管理员",
     roleView: "只读",
+    email: "邮箱",
+    emailPh: "同事的邮箱",
+    role: "角色",
+    inviteTitle: "邀请成员",
+    invited: "邀请已发送（示例）",
+    pending: "待接受",
+    remove: "移除",
+    removed: "成员已移除（示例）",
+    changeRole: "更改角色",
   },
   dev: {
     title: "开发者",
@@ -517,6 +527,18 @@ export const zh = {
     markAll: "全部已读",
     allRead: "已全部标记为已读（示例）",
     empty: "暂无通知",
+  },
+  stmt: {
+    title: "对账单",
+    subtitle: "按月导出交易与结算明细 · 示例数据",
+    period: "账期",
+    txns: "交易笔数",
+    volume: "交易额",
+    fees: "手续费",
+    net: "净结算",
+    download: "下载对账单",
+    detailTitle: "结算明细",
+    batchTotal: "批次净额",
   },
 };
 

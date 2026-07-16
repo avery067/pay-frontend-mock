@@ -16,6 +16,7 @@ import PaymentLinksPage from "@/pages/console/payment-links";
 import DisputesPage from "@/pages/console/disputes";
 import CardsPage from "@/pages/console/cards";
 import ReportsPage from "@/pages/console/reports";
+import StatementsPage from "@/pages/console/statements";
 import TeamPage from "@/pages/console/team";
 import DevelopersPage from "@/pages/console/developers";
 import SettingsPage from "@/pages/console/settings";
@@ -41,6 +42,7 @@ export function App() {
         <Route path="disputes" element={<DisputesPage />} />
         <Route path="cards" element={<CardsPage />} />
         <Route path="reports" element={<ReportsPage />} />
+        <Route path="statements" element={<StatementsPage />} />
         <Route path="team" element={<TeamPage />} />
         <Route path="developers" element={<DevelopersPage />} />
         <Route path="settings" element={<SettingsPage />} />

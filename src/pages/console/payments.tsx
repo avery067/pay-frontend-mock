@@ -7,10 +7,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/pay/status-badge";
 import { AcquiringTxnDrawer } from "@/components/pay/acquiring-txn-drawer";
+import { PayoutDrawer, type Payout } from "@/components/pay/payout-drawer";
 
 export default function PaymentsPage() {
   const { t } = useI18n();
   const [selected, setSelected] = useState<AcquiringTxn | null>(null);
+  const [payout, setPayout] = useState<Payout | null>(null);
 
   const kpis = [
     { label: t("console.kpiVolume"), value: formatMoney(23150) },
@@ -96,7 +98,11 @@ export default function PaymentsPage() {
                   </thead>
                   <tbody>
                     {payouts.map((p) => (
-                      <tr key={p.batch} className="border-b border-border/60 last:border-0">
+                      <tr
+                        key={p.batch}
+                        onClick={() => setPayout(p)}
+                        className="cursor-pointer border-b border-border/60 transition last:border-0 hover:bg-muted/50"
+                      >
                         <td className="px-6 py-3 font-medium tabular-nums">{p.batch}</td>
                         <td className="px-3 py-3 tabular-nums text-muted-foreground">{p.date}</td>
                         <td className="px-3 py-3 text-right font-medium tabular-nums">{formatMoney(p.amount)}</td>
@@ -112,6 +118,7 @@ export default function PaymentsPage() {
       </Tabs>
 
       <AcquiringTxnDrawer item={selected} onOpenChange={(o) => { if (!o) setSelected(null); }} />
+      <PayoutDrawer item={payout} onOpenChange={(o) => { if (!o) setPayout(null); }} />
     </div>
   );
 }

@@ -145,3 +145,11 @@ export const disputes: Dispute[] = [
   { id: "DP-5510", order: "OD-88190", reason: "product", amount: 640, currency: "USD", status: "review", deadline: "07-18", date: "07-14" },
   { id: "DP-5498", order: "OD-88102", reason: "dup", amount: 220, currency: "USD", status: "won", deadline: "07-10", date: "07-08" },
 ];
+
+// 月度对账单（示例）
+export type Statement = { period: string; txns: number; volume: number; fees: number; net: number };
+export const statements: Statement[] = [
+  { period: "2026-06", txns: 1284, volume: 3820500, fees: 41200, net: 3779300 },
+  { period: "2026-05", txns: 1156, volume: 3210400, fees: 35600, net: 3174800 },
+  { period: "2026-04", txns: 998, volume: 2740900, fees: 30100, net: 2710800 },
+];
