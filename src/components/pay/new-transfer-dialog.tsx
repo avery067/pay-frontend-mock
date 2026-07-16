@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from "react";
 import { useI18n } from "@/i18n";
 import { recipients } from "@/mock/more";
+import { useMock } from "@/mock/store";
 import { CURRENCIES } from "@/lib/quote";
+import { formatMoney } from "@/lib/format";
 import {
   Dialog,
   DialogClose,
@@ -19,12 +21,21 @@ import { useToast } from "@/components/ui/toast";
 export function NewTransferDialog({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const { toast } = useToast();
+  const { balances, transfer } = useMock();
   const [open, setOpen] = useState(false);
   const [rid, setRid] = useState(recipients[0]?.id ?? "");
   const [currency, setCurrency] = useState("USD");
+  const [amount, setAmount] = useState(5000);
+  const [note, setNote] = useState("");
+
+  const avail = balances.find((b) => b.currency === currency)?.available ?? 0;
+  const insufficient = amount > avail || amount <= 0;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (insufficient) return;
+    const rcp = recipients.find((r) => r.id === rid);
+    transfer({ recipient: rcp?.name ?? "—", amount, currency, note: note.trim() || undefined });
     setOpen(false);
     toast(t("tf.submitted"));
   };
@@ -53,7 +64,13 @@ export function NewTransferDialog({ children }: { children: ReactNode }) {
           <div className="grid grid-cols-[1fr_7rem] gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="tamt">{t("tf.amount")}</Label>
-              <Input id="tamt" type="number" defaultValue={5000} className="tabular-nums" />
+              <Input
+                id="tamt"
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(Math.max(0, Number(e.target.value) || 0))}
+                className="tabular-nums"
+              />
             </div>
             <div className="flex flex-col justify-end">
               <select
@@ -67,15 +84,20 @@ export function NewTransferDialog({ children }: { children: ReactNode }) {
               </select>
             </div>
           </div>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>{t("bal.available")}</span>
+            <span className={"tabular-nums " + (insufficient ? "text-danger" : "")}>{formatMoney(avail, currency)}</span>
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="tnote">{t("tf.note")}</Label>
-            <Input id="tnote" placeholder={t("tf.notePh")} />
+            <Input id="tnote" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("tf.notePh")} />
           </div>
+          {insufficient && amount > 0 && <p className="text-xs text-danger">{t("txn.insufficient")}</p>}
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="outline">{t("common.cancel")}</Button>
             </DialogClose>
-            <Button type="submit">{t("tf.review")}</Button>
+            <Button type="submit" disabled={insufficient}>{t("tf.review")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

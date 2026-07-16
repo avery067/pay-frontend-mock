@@ -33,6 +33,7 @@ export type LedgerTxn = {
   currency: string;
   status: PayStatus;
   date: string;
+  live?: boolean;
 };
 export const ledger: LedgerTxn[] = [
   { id: "TX-90231", type: "payment", desc: "Acme Inc.（示例）", dir: "in", amount: 1200, currency: "USD", status: "settled", date: "07-16 09:24" },

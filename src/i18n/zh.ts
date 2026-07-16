@@ -305,6 +305,8 @@ export const zh = {
     tConvert: "兑换",
     tCard: "卡消费",
     tRefund: "退款",
+    now: "刚刚",
+    insufficient: "余额不足，无法付款",
   },
   cvt: {
     title: "兑换",

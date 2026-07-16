@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useI18n } from "@/i18n";
-import { ledger } from "@/mock/more";
+import { useMock } from "@/mock/store";
 
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { t } = useI18n();
+  const { ledger } = useMock();
   const navigate = useNavigate();
   const [q, setQ] = useState("");
 

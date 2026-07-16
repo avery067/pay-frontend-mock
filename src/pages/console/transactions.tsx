@@ -4,7 +4,8 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 import { formatMoney } from "@/lib/format";
 import { exportCsv } from "@/lib/export-csv";
-import { ledger, type LedgerTxn } from "@/mock/more";
+import { type LedgerTxn } from "@/mock/more";
+import { useMock } from "@/mock/store";
 import { usePageLoading } from "@/hooks/use-page-loading";
 import { LoadingSkeleton } from "@/components/console/loading-skeleton";
 import { PageHeader } from "@/components/console/page-header";
@@ -33,6 +34,7 @@ const TYPE_KEY: Record<string, string> = {
 
 export default function TransactionsPage() {
   const { t } = useI18n();
+  const { ledger } = useMock();
   const [type, setType] = useState<string>("all");
   const [q, setQ] = useState("");
   const [sel, setSel] = useState<LedgerTxn | null>(null);
@@ -117,7 +119,7 @@ export default function TransactionsPage() {
                     <td className="px-3 py-3">
                       <StatusBadge status={x.status} />
                     </td>
-                    <td className="px-6 py-3 text-right tabular-nums text-muted-foreground">{x.date}</td>
+                    <td className="px-6 py-3 text-right tabular-nums text-muted-foreground">{x.live ? t("txn.now") : x.date}</td>
                   </tr>
                 ))}
                 {rows.length === 0 && (
@@ -157,7 +159,7 @@ export default function TransactionsPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">{t("txn.colDate")}</span>
-                    <span className="tabular-nums">{sel.date}</span>
+                    <span className="tabular-nums">{sel.live ? t("txn.now") : sel.date}</span>
                   </div>
                 </div>
               </SheetBody>

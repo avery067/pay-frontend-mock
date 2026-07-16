@@ -23,6 +23,8 @@ import {
   type ReserveHold,
   disputes as disputesSeed,
   type Dispute,
+  ledger as ledgerSeed,
+  type LedgerTxn,
 } from "./more";
 import { cards as initialCards, notifications as notificationsSeed, type Card } from "./data";
 
@@ -95,6 +97,10 @@ type MockValue = {
   submitDisputeEvidence: (id: string) => void;
   acceptDispute: (id: string) => void;
   withdraw: (p: { currency: string; amount: number }) => void;
+  // 统一实时台账 + 资金转出闭环
+  ledger: LedgerTxn[];
+  convert: (p: { from: string; to: string; pay: number; get: number }) => void;
+  transfer: (p: { recipient: string; amount: number; currency: string; note?: string }) => void;
   // 通知
   notifications: Notif[];
   unreadCount: number;
@@ -135,6 +141,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [reserves, setReserves] = useState<ReserveHold[]>(reservesSeed);
   const [disputes, setDisputes] = useState<Dispute[]>(disputesSeed);
   const [notifs, setNotifs] = useState<Notif[]>(seedNotifs);
+  const [ledger, setLedger] = useState<LedgerTxn[]>(ledgerSeed);
 
   const recordsRef = useRef(records);
   recordsRef.current = records;
@@ -150,11 +157,16 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const cardSeqRef = useRef(0);
   const poSeqRef = useRef(1);
   const notifSeqRef = useRef(0);
+  const ledgerSeqRef = useRef(90231);
 
   // ── 通知：loop 事件实时推送到铃铛 + 通知页 ──
   const pushNotif = (type: string, zh: string, en: string) =>
     setNotifs((prev) => [{ id: `n${100 + ++notifSeqRef.current}`, type, zh, en, time: "", live: true, unread: true }, ...prev].slice(0, 40));
   const markNotifsRead = () => setNotifs((prev) => prev.map((n) => ({ ...n, unread: false })));
+
+  // ── 统一台账：所有资金流实时入账，交易页/命令面板可见 ──
+  const pushLedger = (e: Omit<LedgerTxn, "id" | "date" | "live">) =>
+    setLedger((prev) => [{ ...e, id: `TX-${++ledgerSeqRef.current}`, date: "", live: true }, ...prev].slice(0, 60));
 
   // ── 结汇 ──
   const initiateSettlement: MockValue["initiateSettlement"] = ({ fundId, from, amount }) => {
@@ -175,6 +187,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
       setRecords((prev) => prev.map((x) => (x.ref === ref ? { ...x, stage, status: "settled", declared: true } : x)));
       setBalances((bs) => creditCny(bs, r.rmb));
       pushNotif("success", `结汇 ${ref} 已到账`, `Settlement ${ref} arrived`);
+      pushLedger({ type: "convert", desc: `结汇 ${ref}`, dir: "in", amount: r.rmb, currency: "CNY", status: "settled" });
     } else {
       setRecords((prev) => prev.map((x) => (x.ref === ref ? { ...x, stage } : x)));
     }
@@ -203,6 +216,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setBalances((bs) => bs.map((b) => (b.currency === currency ? { ...b, available: Math.max(0, b.available - amount), usdEq: Math.max(0, b.usdEq - amount * usdPer) } : b)));
     const tid = `ct${++cardSeqRef.current}`;
     setCardTxns((prev) => ({ ...prev, [cardId]: [{ id: tid, merchant, amount }, ...(prev[cardId] || [])] }));
+    pushLedger({ type: "card", desc: merchant, dir: "out", amount, currency, status: "settled" });
   };
   const setCardFrozen: MockValue["setCardFrozen"] = (cardId, frozen) =>
     setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, status: frozen ? "frozen" : "active" } : c)));
@@ -218,6 +232,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     const tx = acqTxnsRef.current.find((x) => x.order === order);
     setAcqTxns((prev) => prev.map((x) => (x.order === order ? { ...x, status: "refunded" } : x)));
     if (!tx) return;
+    pushLedger({ type: "refund", desc: `退款 · ${order}`, dir: "out", amount, currency: tx.currency, status: "settled" });
     if (tx.status === "credited") {
       setBalances((bs) => creditUsd(bs, -amount));
       return;
@@ -251,6 +266,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     }
     setAcqTxns((prev) => prev.map((t) => (b.txnOrders.includes(t.order) ? { ...t, stage: 5, status: "credited" } : t)));
     pushNotif("success", `结算批次 ${b.id} 已打款入账`, `Payout ${b.id} credited`);
+    pushLedger({ type: "payment", desc: `结算批次 ${b.id}`, dir: "in", amount: creditAmt, currency: b.currency, status: "settled" });
   };
 
   const advanceBatch: MockValue["advanceBatch"] = (id) => {
@@ -303,6 +319,37 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setBalances((bs) =>
       bs.map((b) => (b.currency === currency ? { ...b, available: Math.max(0, b.available - amount), usdEq: Math.max(0, b.usdEq - amount * usdPer) } : b)),
     );
+    pushLedger({ type: "payout", desc: `提现到银行 · ${currency}`, dir: "out", amount, currency, status: "settled" });
+  };
+
+  // ── 兑换闭环：扣兑出币种、增兑入币种、记入台账 ──
+  const convert: MockValue["convert"] = ({ from, to, pay, get }) => {
+    const fromUsd = getRate(from, "USD");
+    const toUsd = getRate(to, "USD");
+    setBalances((bs) =>
+      bs.map((b) => {
+        if (b.currency === from) return { ...b, available: Math.max(0, b.available - pay), usdEq: Math.max(0, b.usdEq - pay * fromUsd) };
+        if (b.currency === to) return { ...b, available: b.available + get, usdEq: b.usdEq + get * toUsd };
+        return b;
+      }),
+    );
+    pushLedger({ type: "convert", desc: `${from} → ${to}`, dir: "out", amount: pay, currency: from, status: "settled" });
+  };
+
+  // ── 付款闭环：扣余额、记入台账（处理中 → ~4s 到账 + 通知）──
+  const transfer: MockValue["transfer"] = ({ recipient, amount, currency, note }) => {
+    const usdPer = getRate(currency, "USD");
+    setBalances((bs) =>
+      bs.map((b) => (b.currency === currency ? { ...b, available: Math.max(0, b.available - amount), usdEq: Math.max(0, b.usdEq - amount * usdPer) } : b)),
+    );
+    const id = `TX-${++ledgerSeqRef.current}`;
+    const desc = note ? `${recipient} · ${note}` : recipient;
+    const entry: LedgerTxn = { id, type: "payout", desc, dir: "out", amount, currency, status: "processing", date: "", live: true };
+    setLedger((prev) => [entry, ...prev].slice(0, 60));
+    window.setTimeout(() => {
+      setLedger((prev) => prev.map((x) => (x.id === id ? { ...x, status: "settled" } : x)));
+      pushNotif("success", `付款 ${recipient} 已到账`, `Transfer to ${recipient} settled`);
+    }, 4200);
   };
 
   // 一键重置所有示例状态到初始（原型 mock）
@@ -318,6 +365,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setReserves(reservesSeed);
     setDisputes(disputesSeed);
     setNotifs(seedNotifs);
+    setLedger(ledgerSeed);
   };
 
   // 自动推进：结汇处理中的记录 + 已开始结算的批次
@@ -326,20 +374,23 @@ export function MockProvider({ children }: { children: ReactNode }) {
       const recs = recordsRef.current;
       if (recs.some((r) => r.status === "processing")) {
         let creditRmb = 0;
-        const settledRefs: string[] = [];
+        const settled: { ref: string; rmb: number }[] = [];
         const next = recs.map((r) => {
           if (r.status !== "processing") return r;
           const stage = Math.min(4, r.stage + 1) as SettleStage;
           if (stage === 4) {
             creditRmb += r.rmb;
-            settledRefs.push(r.ref);
+            settled.push({ ref: r.ref, rmb: r.rmb });
             return { ...r, stage, status: "settled" as const, declared: true };
           }
           return { ...r, stage };
         });
         setRecords(next);
         if (creditRmb > 0) setBalances((bs) => creditCny(bs, creditRmb));
-        settledRefs.forEach((ref) => pushNotif("success", `结汇 ${ref} 已到账`, `Settlement ${ref} arrived`));
+        settled.forEach(({ ref, rmb }) => {
+          pushNotif("success", `结汇 ${ref} 已到账`, `Settlement ${ref} arrived`);
+          pushLedger({ type: "convert", desc: `结汇 ${ref}`, dir: "in", amount: rmb, currency: "CNY", status: "settled" });
+        });
       }
       const mv = batchesRef.current.find((b) => b.status === "settling" || b.status === "paid_out");
       if (mv) advanceBatch(mv.id);
@@ -391,6 +442,9 @@ export function MockProvider({ children }: { children: ReactNode }) {
         submitDisputeEvidence,
         acceptDispute,
         withdraw,
+        ledger,
+        convert,
+        transfer,
         notifications: notifs,
         unreadCount,
         markNotifsRead,

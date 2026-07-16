@@ -1,7 +1,7 @@
 import { Send } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { formatMoney } from "@/lib/format";
-import { ledger } from "@/mock/more";
+import { useMock } from "@/mock/store";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { NewTransferDialog } from "@/components/pay/new-transfer-dialog";
 
 export default function TransfersPage() {
   const { t } = useI18n();
+  const { ledger } = useMock();
   const rows = ledger.filter((x) => x.type === "payout");
 
   return (
@@ -47,7 +48,7 @@ export default function TransfersPage() {
                     </td>
                     <td className="px-3 py-3 text-right font-medium tabular-nums text-neg">− {formatMoney(x.amount, x.currency)}</td>
                     <td className="px-3 py-3"><StatusBadge status={x.status} /></td>
-                    <td className="px-6 py-3 text-right tabular-nums text-muted-foreground">{x.date}</td>
+                    <td className="px-6 py-3 text-right tabular-nums text-muted-foreground">{x.live ? t("txn.now") : x.date}</td>
                   </tr>
                 ))}
               </tbody>

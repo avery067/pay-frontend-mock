@@ -4,7 +4,7 @@ import { useI18n } from "@/i18n";
 import { formatAmount } from "@/lib/format";
 import { computeQuote, CURRENCIES } from "@/lib/quote";
 import { useMock } from "@/mock/store";
-import { settlements } from "@/mock/data";
+import { formatMoney } from "@/lib/format";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,10 @@ export default function ConvertPage() {
   const [from, setFrom] = useState("USD");
   const [to, setTo] = useState("CNY");
   const q = computeQuote(pay, from, to);
-  const { balances } = useMock();
+  const { balances, convert, ledger } = useMock();
   const avail = balances.find((b) => b.currency === from)?.available ?? 0;
-  const insufficient = pay > avail;
+  const insufficient = pay > avail || pay <= 0 || from === to;
+  const history = ledger.filter((x) => x.type === "convert");
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -65,8 +66,13 @@ export default function ConvertPage() {
               <Row label={t("landing.fee")} value={`${from} ${formatAmount(q.fee)}`} />
             </div>
 
-            {insufficient && <p className="text-xs text-danger">{t("common.insufficient")}</p>}
-            <Button className="w-full" size="lg" disabled={insufficient} onClick={() => toast(t("cvt.done"))}>
+            {pay > avail && <p className="text-xs text-danger">{t("common.insufficient")}</p>}
+            <Button
+              className="w-full"
+              size="lg"
+              disabled={insufficient}
+              onClick={() => { convert({ from, to, pay, get: q.get }); toast(t("cvt.done")); }}
+            >
               {t("cvt.confirm")}
             </Button>
           </CardContent>
@@ -82,20 +88,25 @@ export default function ConvertPage() {
                     <th className="px-6 py-2.5 text-left font-medium">{t("set.colRef")}</th>
                     <th className="px-3 py-2.5 text-left font-medium">{t("set.colCorridor")}</th>
                     <th className="px-3 py-2.5 text-right font-medium">{t("cvt.youConvert")}</th>
-                    <th className="px-3 py-2.5 text-right font-medium">{t("cvt.youReceive")}</th>
-                    <th className="px-6 py-2.5 text-left font-medium">{t("console.colStatus")}</th>
+                    <th className="px-3 py-2.5 text-left font-medium">{t("console.colStatus")}</th>
+                    <th className="px-6 py-2.5 text-right font-medium">{t("txn.colDate")}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {settlements.map((s) => (
-                    <tr key={s.ref} className="border-b border-border/60 last:border-0">
-                      <td className="px-6 py-3 font-medium tabular-nums">{s.ref}</td>
-                      <td className="px-3 py-3 text-muted-foreground">{s.corridor}</td>
-                      <td className="px-3 py-3 text-right tabular-nums">{s.from} {formatAmount(s.pay)}</td>
-                      <td className="px-3 py-3 text-right font-medium tabular-nums">{s.to} {formatAmount(s.get)}</td>
-                      <td className="px-6 py-3"><StatusBadge status={s.status} /></td>
+                  {history.map((s) => (
+                    <tr key={s.id} className="border-b border-border/60 last:border-0">
+                      <td className="px-6 py-3 font-medium tabular-nums">{s.id}</td>
+                      <td className="px-3 py-3 text-muted-foreground">{s.desc}</td>
+                      <td className="px-3 py-3 text-right tabular-nums">{formatMoney(s.amount, s.currency)}</td>
+                      <td className="px-3 py-3"><StatusBadge status={s.status} /></td>
+                      <td className="px-6 py-3 text-right tabular-nums text-muted-foreground">{s.live ? t("txn.now") : s.date}</td>
                     </tr>
                   ))}
+                  {history.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-10 text-center text-sm text-muted-foreground">{t("common.empty")}</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

@@ -311,6 +311,8 @@ export const en: Dict = {
     tConvert: "Convert",
     tCard: "Card",
     tRefund: "Refund",
+    now: "just now",
+    insufficient: "Insufficient balance to pay",
   },
   cvt: {
     title: "Convert",
