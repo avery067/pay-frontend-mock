@@ -14,17 +14,50 @@ import {
   Bar,
 } from "recharts";
 import { useI18n } from "@/i18n";
-import { formatMoney } from "@/lib/format";
+import { formatAmount, formatMoney } from "@/lib/format";
 import { exportCsv } from "@/lib/export-csv";
-import { volumeSeries, methodBreakdown, corridorVolume } from "@/mock/more";
+import { volumeSeries, corridorVolume } from "@/mock/more";
+import { useMock } from "@/mock/store";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 const PIE_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 
+function methodName(m: string): string {
+  if (m.startsWith("Visa")) return "Visa";
+  if (m.startsWith("Mastercard")) return "Mastercard";
+  if (m.startsWith("Amex")) return "Amex";
+  if (m.includes("Alipay")) return "Alipay";
+  if (m.includes("WeChat")) return "WeChat Pay";
+  if (m.includes("SEPA")) return "SEPA";
+  if (m.includes("链接") || m.toLowerCase().includes("link")) return "Link";
+  return m;
+}
+
 export default function ReportsPage() {
   const { t } = useI18n();
+  const { acqTxns } = useMock();
+
+  const volume = acqTxns.reduce((s, x) => s + x.gross, 0);
+  const fees = acqTxns.reduce((s, x) => s + x.fee, 0);
+  const net = acqTxns.reduce((s, x) => s + x.net, 0);
+  const summary = [
+    { key: "rep.kpiVolume", value: formatMoney(volume) },
+    { key: "rep.kpiFees", value: formatMoney(fees) },
+    { key: "rep.kpiNet", value: formatMoney(net) },
+    { key: "rep.kpiCount", value: formatAmount(acqTxns.length, { min: 0, max: 0 }) },
+  ];
+
+  const methodBreakdown = (() => {
+    const map = new Map<string, number>();
+    acqTxns.forEach((x) => map.set(methodName(x.method), (map.get(methodName(x.method)) || 0) + x.gross));
+    const total = [...map.values()].reduce((s, v) => s + v, 0) || 1;
+    return [...map.entries()]
+      .map(([name, v]) => ({ name, value: Math.round((v / total) * 100) }))
+      .sort((a, b) => b.value - a.value);
+  })();
+
   const tooltipStyle = {
     background: "var(--popover)",
     border: "1px solid var(--border)",
@@ -45,6 +78,19 @@ export default function ReportsPage() {
           </Button>
         }
       />
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {summary.map((s) => (
+          <Card key={s.key}>
+            <CardContent className="p-5">
+              <div className="text-sm text-muted-foreground">{t(s.key)}</div>
+              <div className="mt-2 tabular-nums text-2xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
+                {s.value}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
       <Card>
         <CardHeader>

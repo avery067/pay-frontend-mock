@@ -337,6 +337,10 @@ export const zh = {
     byMethod: "支付方式占比",
     byCorridor: "通道分布",
     export: "导出",
+    kpiVolume: "收单交易额",
+    kpiFees: "手续费合计",
+    kpiNet: "净额合计",
+    kpiCount: "交易笔数",
   },
   tf: {
     title: "付款",

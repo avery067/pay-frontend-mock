@@ -343,6 +343,10 @@ export const en: Dict = {
     byMethod: "By payment method",
     byCorridor: "By corridor",
     export: "Export",
+    kpiVolume: "Acquiring volume",
+    kpiFees: "Total fees",
+    kpiNet: "Total net",
+    kpiCount: "Transactions",
   },
   tf: {
     title: "Transfers",
