@@ -31,6 +31,9 @@ import {
   type Recipient,
   fxOrdersSeed,
   type FxOrder,
+  riskRulesSeed,
+  type RiskRule,
+  riskProfileSeed,
 } from "./more";
 import { cards as initialCards, notifications as notificationsSeed, type Card, type CardControls, type CardChannel } from "./data";
 
@@ -126,6 +129,14 @@ type MockValue = {
   captureTxn: (p: { order: string; amount?: number }) => void;
   incrementAuth: (p: { order: string; delta: number }) => void;
   endAuth: (order: string) => void;
+  // 风控与拒付率
+  riskRules: RiskRule[];
+  toggleRule: (id: string) => void;
+  approveReview: (order: string) => void;
+  declineReview: (order: string) => void;
+  disputeRatio: number;
+  riskThreshold: number;
+  riskTier: "normal" | "watch" | "restricted";
   voidTxn: (order: string) => void;
   refundTxn: (p: { order: string; amount: number }) => void;
   advanceBatch: (batchId: string) => void;
@@ -213,6 +224,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [recipientList, setRecipientList] = useState<Recipient[]>(recipientsSeed);
   const [spotRates, setSpotRates] = useState<Record<string, number>>({ ...RATES });
   const [fxOrders, setFxOrders] = useState<FxOrder[]>(fxOrdersSeed);
+  const [riskRules, setRiskRules] = useState<RiskRule[]>(riskRulesSeed);
 
   const recordsRef = useRef(records);
   recordsRef.current = records;
@@ -379,6 +391,14 @@ export function MockProvider({ children }: { children: ReactNode }) {
         return t;
       }),
     );
+  // 风控人工审核队列：放行→进请款主线；拒绝→撤销
+  const approveReview: MockValue["approveReview"] = (order) =>
+    setAcqTxns((prev) => prev.map((t) => (t.order === order && t.status === "review" ? { ...t, status: "captured", stage: 1 } : t)));
+  const declineReview: MockValue["declineReview"] = (order) =>
+    setAcqTxns((prev) => prev.map((t) => (t.order === order && t.status === "review" ? { ...t, status: "voided" } : t)));
+  const toggleRule: MockValue["toggleRule"] = (id) =>
+    setRiskRules((prev) => prev.map((r) => (r.id === id ? { ...r, on: !r.on } : r)));
+
   const voidTxn: MockValue["voidTxn"] = (order) =>
     setAcqTxns((prev) => prev.map((t) => (t.order === order && t.status === "authorized" ? { ...t, status: "voided" } : t)));
   // 退款：已入账 → 从 USD 扣回；未打款且在批次内 → 冲减该批次毛额/净额（及在途打款额）
@@ -553,6 +573,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setRecipientList(recipientsSeed);
     setSpotRates({ ...RATES });
     setFxOrders(fxOrdersSeed);
+    setRiskRules(riskRulesSeed);
   };
 
   // 自动推进：结汇处理中的记录 + 已开始结算的批次
@@ -619,6 +640,9 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const pendingPoolUsd = nonCreditedNet + capturedNet;
   const instantAvailableUsd = nonCreditedNet;
   const unreadCount = notifs.filter((n) => n.unread).length;
+  const disputeRatio = Math.round((riskProfileSeed.disputeRatio + disputes.filter((d) => d.status === "lost").length * 0.06) * 100) / 100;
+  const riskThreshold = riskProfileSeed.threshold;
+  const riskTier: MockValue["riskTier"] = disputeRatio >= riskThreshold ? "restricted" : disputeRatio >= riskThreshold * 0.85 ? "watch" : "normal";
 
   return (
     <MockCtx.Provider
@@ -652,6 +676,13 @@ export function MockProvider({ children }: { children: ReactNode }) {
         captureTxn,
         incrementAuth,
         endAuth,
+        riskRules,
+        toggleRule,
+        approveReview,
+        declineReview,
+        disputeRatio,
+        riskThreshold,
+        riskTier,
         voidTxn,
         refundTxn,
         advanceBatch,

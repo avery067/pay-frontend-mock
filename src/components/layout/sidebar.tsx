@@ -10,6 +10,7 @@ import {
   HandCoins,
   Link2,
   Scale,
+  ShieldAlert,
   CreditCard,
   BarChart3,
   UsersRound,
@@ -44,6 +45,7 @@ const GROUPS: Group[] = [
     items: [
       { to: "/app/payments", icon: HandCoins, key: "nav.payments" },
       { to: "/app/links", icon: Link2, key: "nav.links" },
+      { to: "/app/risk", icon: ShieldAlert, key: "nav.risk" },
       { to: "/app/disputes", icon: Scale, key: "nav.disputes" },
     ],
   },
