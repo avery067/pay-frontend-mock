@@ -5,6 +5,8 @@ import { useI18n } from "@/i18n";
 import { formatMoney } from "@/lib/format";
 import { type PayLink } from "@/mock/more";
 import { useMock } from "@/mock/store";
+import { usePageLoading } from "@/hooks/use-page-loading";
+import { LoadingSkeleton } from "@/components/console/loading-skeleton";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -29,6 +31,8 @@ export default function PaymentLinksPage() {
   const { paymentLinks, collectLink } = useMock();
   const [selId, setSelId] = useState<string | null>(null);
   const sel: PayLink | null = selId ? paymentLinks.find((l) => l.id === selId) ?? null : null;
+  const loading = usePageLoading();
+  if (loading) return <LoadingSkeleton rows={4} />;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -99,6 +103,11 @@ export default function PaymentLinksPage() {
                     </td>
                   </tr>
                 ))}
+                {paymentLinks.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-sm text-muted-foreground">{t("links.empty")}</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

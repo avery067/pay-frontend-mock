@@ -2,6 +2,8 @@ import { Send } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { formatMoney } from "@/lib/format";
 import { useMock } from "@/mock/store";
+import { usePageLoading } from "@/hooks/use-page-loading";
+import { LoadingSkeleton } from "@/components/console/loading-skeleton";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +14,8 @@ export default function TransfersPage() {
   const { t } = useI18n();
   const { ledger } = useMock();
   const rows = ledger.filter((x) => x.type === "payout");
+  const loading = usePageLoading();
+  if (loading) return <LoadingSkeleton rows={6} />;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -51,6 +55,11 @@ export default function TransfersPage() {
                     <td className="px-6 py-3 text-right tabular-nums text-muted-foreground">{x.live ? t("txn.now") : x.date}</td>
                   </tr>
                 ))}
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-12 text-center text-sm text-muted-foreground">{t("common.empty")}</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

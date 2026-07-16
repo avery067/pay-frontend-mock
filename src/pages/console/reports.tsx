@@ -18,6 +18,8 @@ import { formatAmount, formatMoney } from "@/lib/format";
 import { exportCsv } from "@/lib/export-csv";
 import { volumeSeries, corridorVolume } from "@/mock/more";
 import { useMock } from "@/mock/store";
+import { usePageLoading } from "@/hooks/use-page-loading";
+import { LoadingSkeleton } from "@/components/console/loading-skeleton";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,6 +40,7 @@ function methodName(m: string): string {
 export default function ReportsPage() {
   const { t } = useI18n();
   const { acqTxns } = useMock();
+  const loading = usePageLoading();
 
   const volume = acqTxns.reduce((s, x) => s + x.gross, 0);
   const fees = acqTxns.reduce((s, x) => s + x.fee, 0);
@@ -65,6 +68,8 @@ export default function ReportsPage() {
     color: "var(--popover-foreground)",
     fontSize: 12,
   } as const;
+
+  if (loading) return <LoadingSkeleton kpis={4} rows={4} />;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

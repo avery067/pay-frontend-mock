@@ -3,6 +3,8 @@ import { Plus, Send } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useMock } from "@/mock/store";
 import { CURRENCIES } from "@/lib/quote";
+import { usePageLoading } from "@/hooks/use-page-loading";
+import { LoadingSkeleton } from "@/components/console/loading-skeleton";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,7 @@ export default function RecipientsPage() {
   const [account, setAccount] = useState("");
   const [country, setCountry] = useState("");
   const [currency, setCurrency] = useState("USD");
+  const loading = usePageLoading();
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +48,8 @@ export default function RecipientsPage() {
     setCurrency("USD");
     toast(t("rcp.added"));
   };
+
+  if (loading) return <LoadingSkeleton rows={5} />;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

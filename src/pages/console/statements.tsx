@@ -3,12 +3,16 @@ import { useI18n } from "@/i18n";
 import { formatMoney } from "@/lib/format";
 import { exportCsv } from "@/lib/export-csv";
 import { statements } from "@/mock/more";
+import { usePageLoading } from "@/hooks/use-page-loading";
+import { LoadingSkeleton } from "@/components/console/loading-skeleton";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export default function StatementsPage() {
   const { t } = useI18n();
+  const loading = usePageLoading();
+  if (loading) return <LoadingSkeleton rows={4} />;
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader title={t("stmt.title")} subtitle={t("stmt.subtitle")} />

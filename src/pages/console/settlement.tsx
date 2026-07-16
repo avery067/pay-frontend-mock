@@ -4,6 +4,8 @@ import { useI18n } from "@/i18n";
 import { formatAmount, formatMoney } from "@/lib/format";
 import { settleQuota } from "@/mock/more";
 import { useMock } from "@/mock/store";
+import { usePageLoading } from "@/hooks/use-page-loading";
+import { LoadingSkeleton } from "@/components/console/loading-skeleton";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,8 @@ export default function SettlementPage() {
   const { funds, records, pendingUsd, retrySettlement } = useMock();
   const [openRef, setOpenRef] = useState<string | null>(null);
   const quotaPct = Math.round((settleQuota.usedRmb / settleQuota.totalRmb) * 100);
+  const loading = usePageLoading();
+  if (loading) return <LoadingSkeleton kpis={3} rows={5} />;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
