@@ -438,6 +438,9 @@ export const en: Dict = {
     recDeclare: "Declaration",
     declared: "Declared",
     toDeclare: "To declare",
+    stage: "Stage",
+    advance: "Advance (demo)",
+    liveHint: "Settlement advances automatically; RMB is credited on arrival (demo)",
   },
   onb: {
     brand: "Open your cross-border account",

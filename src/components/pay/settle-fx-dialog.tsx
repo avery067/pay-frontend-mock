@@ -17,12 +17,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
+import { useMock } from "@/mock/store";
 
 const STEPS = ["stl.step1", "stl.step2", "stl.step3", "stl.step4"];
 
 export function SettleFxDialog({ children, fund }: { children: ReactNode; fund?: SettleFund }) {
   const { t } = useI18n();
   const { toast } = useToast();
+  const { initiateSettlement } = useMock();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [mode, setMode] = useState<"spot" | "forward">("spot");
@@ -45,6 +47,7 @@ export function SettleFxDialog({ children, fund }: { children: ReactNode; fund?:
   const rmb = amount * rate * (1 - 0.0025);
 
   const submit = () => {
+    initiateSettlement({ fundId: fund?.id, from, amount });
     setOpen(false);
     toast(t("stl.done"));
   };

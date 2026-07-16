@@ -432,6 +432,9 @@ export const zh = {
     recDeclare: "申报状态",
     declared: "已申报",
     toDeclare: "待申报",
+    stage: "阶段",
+    advance: "推进一步（示例）",
+    liveHint: "结汇进度会自动推进，到账后 RMB 余额实时入账（示例）",
   },
   onb: {
     brand: "开立你的跨境账户",

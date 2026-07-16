@@ -9,15 +9,18 @@ import { App } from "./App";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { I18nProvider } from "@/i18n";
 import { ToastProvider } from "@/components/ui/toast";
+import { MockProvider } from "@/mock/store";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <I18nProvider>
       <ThemeProvider>
         <ToastProvider>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
+          <MockProvider>
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </MockProvider>
         </ToastProvider>
       </ThemeProvider>
     </I18nProvider>

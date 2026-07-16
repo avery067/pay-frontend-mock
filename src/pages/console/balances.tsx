@@ -1,7 +1,7 @@
 import { Plus, ArrowDownToLine, Repeat } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { formatAmount, formatMoney } from "@/lib/format";
-import { balances, totalUsdEq } from "@/mock/more";
+import { useMock } from "@/mock/store";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/toast";
 export default function BalancesPage() {
   const { t } = useI18n();
   const { toast } = useToast();
+  const { balances, totalUsdEq } = useMock();
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
