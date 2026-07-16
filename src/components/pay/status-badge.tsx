@@ -10,6 +10,7 @@ const MAP: Record<string, { variant: Variant; key: string }> = {
   failed: { variant: "danger", key: "status.failed" },
   active: { variant: "success", key: "iss.active" },
   frozen: { variant: "info", key: "iss.frozen" },
+  issuing: { variant: "warning", key: "iss.issuing" },
 };
 
 export function StatusBadge({ status }: { status: string }) {

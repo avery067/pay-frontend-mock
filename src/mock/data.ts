@@ -1,7 +1,7 @@
 // 全部为原型示例数据（SAMPLE）。金额/汇率取真实合理值以便演示，实体名一眼可辨为示例。
 
 export type PayStatus = "settled" | "processing" | "pending" | "failed";
-export type CardStatus = "active" | "frozen";
+export type CardStatus = "active" | "frozen" | "issuing";
 
 export type Settlement = {
   ref: string;

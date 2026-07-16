@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { formatAmount, formatMoney } from "@/lib/format";
-import { cards, type Card as CardT } from "@/mock/data";
+import { useMock } from "@/mock/store";
 import { PageHeader } from "@/components/console/page-header";
 import { Button } from "@/components/ui/button";
 import { CardVisual } from "@/components/pay/card-visual";
@@ -12,9 +12,8 @@ import { CardDrawer } from "@/components/pay/card-drawer";
 
 export default function CardsPage() {
   const { t } = useI18n();
-  const [selected, setSelected] = useState<CardT | null>(null);
-  const [created, setCreated] = useState<CardT[]>([]);
-  const all = [...created, ...cards];
+  const { cards } = useMock();
+  const [cardId, setCardId] = useState<string | null>(null);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -22,7 +21,7 @@ export default function CardsPage() {
         title={t("nav.cards")}
         subtitle={t("iss.subtitle")}
         actions={
-          <IssueCardDialog onCreate={(c) => setCreated((prev) => [c, ...prev])}>
+          <IssueCardDialog>
             <Button size="sm">
               <Plus />
               {t("iss.issueCard")}
@@ -32,12 +31,12 @@ export default function CardsPage() {
       />
 
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {all.map((c) => {
+        {cards.map((c) => {
           const pct = Math.min(100, Math.round((c.spent / c.limit) * 100));
           return (
             <button
               key={c.id}
-              onClick={() => setSelected(c)}
+              onClick={() => setCardId(c.id)}
               className="rounded-2xl border border-border bg-card p-4 text-left transition hover:shadow-md"
             >
               <CardVisual name={c.name} brand={c.brand} last4={c.last4} currency={c.currency} frozen={c.status === "frozen"} />
@@ -53,14 +52,14 @@ export default function CardsPage() {
                 <span>/ {formatAmount(c.limit)}</span>
               </div>
               <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-                <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
+                <div className="h-full rounded-full bg-brand transition-[width] duration-500" style={{ width: `${pct}%` }} />
               </div>
             </button>
           );
         })}
       </div>
 
-      <CardDrawer item={selected} onOpenChange={(o) => { if (!o) setSelected(null); }} />
+      <CardDrawer cardId={cardId} onOpenChange={(o) => { if (!o) setCardId(null); }} />
     </div>
   );
 }

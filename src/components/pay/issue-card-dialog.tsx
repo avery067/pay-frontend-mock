@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { CreditCard, Wallet } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
-import type { Card } from "@/mock/data";
+import { useMock } from "@/mock/store";
 import {
   Dialog,
   DialogClose,
@@ -18,15 +18,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { CURRENCIES } from "@/lib/quote";
 
-export function IssueCardDialog({
-  children,
-  onCreate,
-}: {
-  children: ReactNode;
-  onCreate?: (card: Card) => void;
-}) {
+export function IssueCardDialog({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const { toast } = useToast();
+  const { issueCard } = useMock();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<"virtual" | "physical">("virtual");
   const [currency, setCurrency] = useState("USD");
@@ -35,18 +30,14 @@ export function IssueCardDialog({
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const card: Card = {
-      id: `c${Math.floor(Math.random() * 1_000_000)}`,
+    issueCard({
       name: name.trim() || t("iss.cardName"),
       type,
       brand: Math.random() < 0.5 ? "Visa" : "Mastercard",
       last4: String(Math.floor(1000 + Math.random() * 9000)),
       currency,
       limit: Number(limit) || 10000,
-      spent: 0,
-      status: "active",
-    };
-    onCreate?.(card);
+    });
     setOpen(false);
     setName("");
     setLimit(10000);
