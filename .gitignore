@@ -38,3 +38,6 @@ coverage/
 .cache/
 .turbo/
 *.tsbuildinfo
+
+# local tooling artifacts
+.playwright-mcp/

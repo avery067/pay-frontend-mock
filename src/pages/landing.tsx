@@ -1,13 +1,24 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, ArrowLeftRight, CreditCard, Store } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowLeftRight,
+  CreditCard,
+  Store,
+  Wallet,
+  Check,
+  ShieldCheck,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
+import { fxTicker, networks } from "@/mock/data";
 import { Logo } from "@/components/common/logo";
 import { LangSwitcher } from "@/components/common/lang-switcher";
 import { ThemeSwitcher } from "@/components/theme/theme-switcher";
+import { Reveal } from "@/components/common/reveal";
+import { CountUp } from "@/components/common/count-up";
+import { LiveQuote } from "@/components/pay/live-quote";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 const pillars = [
   { icon: ArrowLeftRight, title: "landing.p1Title", desc: "landing.p1Desc" },
@@ -15,10 +26,10 @@ const pillars = [
   { icon: Store, title: "landing.p3Title", desc: "landing.p3Desc" },
 ];
 
-const stats = [
-  { v: "landing.stat1v", k: "landing.stat1" },
-  { v: "landing.stat2v", k: "landing.stat2" },
-  { v: "landing.stat3v", k: "landing.stat3" },
+const steps = [
+  { n: "01", icon: Wallet, title: "home.step1", desc: "home.step1d" },
+  { n: "02", icon: ArrowLeftRight, title: "home.step2", desc: "home.step2d" },
+  { n: "03", icon: CreditCard, title: "home.step3", desc: "home.step3d" },
 ];
 
 export default function LandingPage() {
@@ -27,7 +38,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      {/* 顶部导航 */}
+      {/* 导航 */}
       <header className="sticky top-0 z-30 border-b border-border/70 bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-6">
           <Link to="/" aria-label="Meridian">
@@ -35,7 +46,7 @@ export default function LandingPage() {
           </Link>
           <nav className="ml-2 hidden items-center gap-6 text-sm text-muted-foreground md:flex">
             <a href="#pillars" className="transition hover:text-foreground">{t("nav.product")}</a>
-            <a href="#pillars" className="transition hover:text-foreground">{t("nav.solutions")}</a>
+            <a href="#how" className="transition hover:text-foreground">{t("nav.solutions")}</a>
             <a href="#" className="transition hover:text-foreground">{t("nav.pricing")}</a>
             <a href="#" className="transition hover:text-foreground">{t("nav.developers")}</a>
           </nav>
@@ -52,12 +63,25 @@ export default function LandingPage() {
         </div>
       </header>
 
+      {/* FX 行情条 */}
+      <div className="overflow-hidden border-b border-border bg-muted/20">
+        <div className="ticker-track whitespace-nowrap py-2.5">
+          {[...fxTicker, ...fxTicker].map((f, i) => (
+            <span key={i} className="mx-5 inline-flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">{f.pair}</span>
+              <span className="tabular-nums font-medium">{f.rate}</span>
+              <span className={cn("text-[10px]", f.up ? "text-pos" : "text-neg")}>{f.up ? "▲" : "▼"}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
       <main>
         {/* HERO */}
         <section className="relative overflow-hidden">
           <div
             aria-hidden
-            className="pointer-events-none absolute -top-40 right-[-10%] h-[28rem] w-[28rem] rounded-full opacity-20 blur-3xl"
+            className="pointer-events-none absolute -top-40 right-[-10%] h-[30rem] w-[30rem] rounded-full opacity-20 blur-3xl"
             style={{ background: "var(--brand)" }}
           />
           <div className="mx-auto grid max-w-6xl gap-12 px-6 py-16 md:grid-cols-[1.05fr_0.95fr] md:items-center md:py-24">
@@ -85,64 +109,142 @@ export default function LandingPage() {
                   {t("actions.viewDemo")}
                 </Link>
               </div>
-              <p className="mt-6 text-sm text-muted-foreground">{t("landing.trust")}</p>
+              <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
+                <ShieldCheck className="size-4 text-success" />
+                {t("landing.trust")}
+              </div>
             </div>
 
-            {/* 签名元素：透明报价卡 */}
+            {/* 签名元素：可交互报价卡 + 悬浮到账卡 */}
             <div className="relative">
-              <Card className="relative z-10 overflow-hidden shadow-xl">
-                <div className="flex items-center justify-between border-b border-border px-5 py-3">
-                  <span className="text-sm font-medium">{t("landing.quoteTitle")}</span>
-                  <Badge variant="warning">{t("landing.locked")}</Badge>
+              <div
+                className="absolute -bottom-6 -left-4 z-0 hidden items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-lg sm:flex"
+              >
+                <span className="grid size-9 place-items-center rounded-full bg-success/15 text-success">
+                  <Check className="size-4" />
+                </span>
+                <div>
+                  <div className="text-xs text-muted-foreground">{t("set.stepArrived")}</div>
+                  <div className="tabular-nums text-sm font-semibold text-pos">+ CNY 71,676.86</div>
                 </div>
-                <div className="space-y-3.5 p-5">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-sm text-muted-foreground">{t("landing.youSend")}</span>
-                    <span className="tabular-nums text-lg font-semibold">
-                      10,000.00 <span className="text-sm font-medium text-muted-foreground">USD</span>
-                    </span>
-                  </div>
-                  <div className="h-px bg-border" />
-                  <QuoteLine label={t("landing.rate")} value="1 USD = 7.1820 CNY" />
-                  <QuoteLine label={t("landing.spread")} value="0.35%" sub="− 25.14" />
-                  <QuoteLine label={t("landing.fee")} value="USD 12.00" />
-                  <QuoteLine label={t("landing.eta")} value={t("landing.etaValue")} />
-                  <div className="mt-1 rounded-xl bg-secondary/60 p-4">
-                    <div className="text-xs text-muted-foreground">{t("landing.theyGet")}</div>
-                    <div className="mt-1 flex items-baseline gap-2">
-                      <span className="tabular-nums text-3xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-                        71,676.86
-                      </span>
-                      <span className="text-sm font-medium text-muted-foreground">CNY</span>
-                    </div>
-                  </div>
-                </div>
-              </Card>
+              </div>
+              <LiveQuote className="relative z-10 overflow-hidden shadow-xl" />
             </div>
           </div>
         </section>
 
+        {/* 支付网络 */}
+        <section className="border-y border-border bg-muted/10">
+          <div className="mx-auto max-w-6xl px-6 py-8">
+            <p className="text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              {t("home.networksTitle")}
+            </p>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
+              {networks.map((n) => (
+                <span key={n} className="text-base font-semibold text-muted-foreground/70">{n}</span>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* 三步流程 */}
+        <section id="how" className="mx-auto max-w-6xl px-6 py-16 md:py-24">
+          <Reveal>
+            <h2 className={cn("text-2xl font-semibold md:text-3xl", tight)}>{t("home.howTitle")}</h2>
+            <p className="mt-3 max-w-2xl text-muted-foreground">{t("home.howSubtitle")}</p>
+          </Reveal>
+          <div className="mt-12 grid gap-8 md:grid-cols-3">
+            {steps.map((s, i) => (
+              <Reveal key={s.n} delay={i * 90}>
+                <div className="relative">
+                  <div className="flex items-center gap-3">
+                    <span className="grid size-11 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+                      <s.icon className="size-5" />
+                    </span>
+                    <span className="tabular-nums text-sm font-semibold text-muted-foreground">{s.n}</span>
+                  </div>
+                  <h3 className="mt-4 text-lg font-semibold">{t(s.title)}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t(s.desc)}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+
+        {/* 产品预览 */}
+        <section className="border-t border-border bg-muted/20">
+          <div className="mx-auto max-w-6xl px-6 py-16 md:py-24">
+            <Reveal>
+              <h2 className={cn("text-2xl font-semibold md:text-3xl", tight)}>{t("home.previewTitle")}</h2>
+              <p className="mt-3 max-w-2xl text-muted-foreground">{t("home.previewSubtitle")}</p>
+            </Reveal>
+            <Reveal delay={120}>
+              <div className="mt-10 overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
+                <div className="flex items-center gap-1.5 border-b border-border px-4 py-3">
+                  <span className="size-2.5 rounded-full bg-danger/50" />
+                  <span className="size-2.5 rounded-full bg-warning/50" />
+                  <span className="size-2.5 rounded-full bg-success/50" />
+                  <span className="ml-3 tabular-nums text-xs text-muted-foreground">app.meridian.example / overview</span>
+                </div>
+                <div className="space-y-4 bg-muted/20 p-5 md:p-7">
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { l: t("console.kpiVolume"), v: "USD 1,284,530" },
+                      { l: t("console.kpiCards"), v: "1,286" },
+                      { l: t("console.kpiSuccess"), v: "98.6%" },
+                    ].map((k) => (
+                      <div key={k.l} className="rounded-xl border border-border bg-card p-4">
+                        <div className="truncate text-xs text-muted-foreground">{k.l}</div>
+                        <div className="mt-1.5 tabular-nums text-base font-semibold md:text-xl" style={{ fontFamily: "var(--font-display)" }}>
+                          {k.v}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="rounded-xl border border-border bg-card">
+                    {[
+                      { m: "Acme Inc.（示例）", a: "+ USD 1,200.00", s: t("status.settled"), c: "text-success" },
+                      { m: "示例商户 001", a: "+ USD 3,450.00", s: t("status.processing"), c: "text-warning" },
+                      { m: "Globex（示例）", a: "+ USD 880.00", s: t("status.settled"), c: "text-success" },
+                    ].map((r, i) => (
+                      <div key={i} className="flex items-center justify-between border-b border-border/60 px-4 py-3 text-sm last:border-0">
+                        <span className="font-medium">{r.m}</span>
+                        <span className="flex items-center gap-4">
+                          <span className="tabular-nums text-pos">{r.a}</span>
+                          <span className={cn("text-xs", r.c)}>{r.s}</span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
         {/* 三条业务线 */}
-        <section id="pillars" className="border-t border-border bg-muted/20">
-          <div className="mx-auto max-w-6xl px-6 py-16 md:py-20">
+        <section id="pillars" className="mx-auto max-w-6xl px-6 py-16 md:py-24">
+          <Reveal>
             <h2 className={cn("text-2xl font-semibold md:text-3xl", tight)}>{t("landing.pillarsTitle")}</h2>
             <p className="mt-3 max-w-2xl text-muted-foreground">{t("landing.pillarsSubtitle")}</p>
-            <div className="mt-10 grid gap-5 md:grid-cols-3">
-              {pillars.map((p) => (
-                <Card key={p.title} className="p-6 transition hover:shadow-md">
+          </Reveal>
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
+            {pillars.map((p, i) => (
+              <Reveal key={p.title} delay={i * 90}>
+                <Card className="h-full p-6 transition hover:shadow-md">
                   <span className="grid size-11 place-items-center rounded-xl bg-secondary text-secondary-foreground">
                     <p.icon className="size-5" />
                   </span>
                   <h3 className="mt-4 text-lg font-semibold">{t(p.title)}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t(p.desc)}</p>
                 </Card>
-              ))}
-            </div>
+              </Reveal>
+            ))}
           </div>
         </section>
 
         {/* 深色品牌带 + 统计 */}
-        <section className="px-6 py-16">
+        <section className="px-6 pb-16">
           <div
             className="mx-auto max-w-6xl overflow-hidden rounded-3xl px-8 py-12 md:px-14 md:py-16"
             style={{ background: "var(--surface-deep)", color: "var(--surface-deep-foreground)" }}
@@ -150,14 +252,9 @@ export default function LandingPage() {
             <h2 className={cn("max-w-2xl text-2xl font-semibold md:text-3xl", tight)}>{t("landing.bandTitle")}</h2>
             <p className="mt-3 max-w-xl text-sm opacity-75">{t("landing.bandDesc")}</p>
             <div className="mt-10 grid grid-cols-3 gap-4 border-t border-white/15 pt-8">
-              {stats.map((s) => (
-                <div key={s.k}>
-                  <div className="tabular-nums text-2xl font-semibold md:text-4xl" style={{ fontFamily: "var(--font-display)" }}>
-                    {t(s.v)}
-                  </div>
-                  <div className="mt-1 text-xs opacity-75 md:text-sm">{t(s.k)}</div>
-                </div>
-              ))}
+              <Stat value={<CountUp to={40} suffix="+" />} label={t("landing.stat1")} />
+              <Stat value={<CountUp to={180} suffix="+" />} label={t("landing.stat2")} />
+              <Stat value={t("landing.stat3v")} label={t("landing.stat3")} />
             </div>
             <div className="mt-10">
               <Link to="/app" className={cn(buttonVariants({ variant: "brand", size: "lg" }))}>
@@ -167,19 +264,40 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+
+        {/* CTA */}
+        <section className="mx-auto max-w-6xl px-6 pb-20">
+          <Reveal className="text-center">
+            <h2 className={cn("mx-auto max-w-2xl text-2xl font-semibold md:text-4xl", tight)}>{t("home.ctaTitle")}</h2>
+            <p className="mx-auto mt-3 max-w-xl text-muted-foreground">{t("home.ctaSubtitle")}</p>
+            <div className="mt-8 flex justify-center">
+              <Link to="/login" className={cn(buttonVariants({ variant: "default", size: "lg" }))}>
+                {t("actions.getStarted")}
+                <ArrowRight />
+              </Link>
+            </div>
+          </Reveal>
+        </section>
       </main>
 
       {/* 页脚 */}
       <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
+        <div className="mx-auto grid max-w-6xl gap-8 px-6 py-12 sm:grid-cols-2 md:grid-cols-4">
+          <div className="space-y-3">
             <Logo />
-            <span className="text-sm text-muted-foreground">· {t("brand.cn")}</span>
+            <p className="max-w-xs text-sm text-muted-foreground">{t("brand.cn")} · {t("footer.rights")}</p>
           </div>
-          <p className="text-sm text-muted-foreground">© 2026 Meridian · {t("footer.rights")}</p>
-          <div className="flex items-center gap-2">
-            <LangSwitcher />
-            <ThemeSwitcher />
+          <FooterCol title={t("footer.product")} items={[t("nav.settlement"), t("nav.issuing"), t("nav.acquiring")]} />
+          <FooterCol title={t("footer.company")} items={[t("nav.product"), t("nav.solutions"), t("nav.pricing")]} />
+          <FooterCol title={t("footer.legal")} items={[t("nav.developers"), "Terms", "Privacy"]} />
+        </div>
+        <div className="border-t border-border">
+          <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-5 sm:flex-row">
+            <p className="tabular-nums text-sm text-muted-foreground">© 2026 Meridian</p>
+            <div className="flex items-center gap-2">
+              <LangSwitcher />
+              <ThemeSwitcher />
+            </div>
           </div>
         </div>
       </footer>
@@ -187,14 +305,28 @@ export default function LandingPage() {
   );
 }
 
-function QuoteLine({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function Stat({ value, label }: { value: React.ReactNode; label: string }) {
   return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="flex items-center gap-2">
-        <span className="tabular-nums font-medium">{value}</span>
-        {sub && <span className="tabular-nums text-xs text-muted-foreground">{sub}</span>}
-      </span>
+    <div>
+      <div className="tabular-nums text-2xl font-semibold md:text-4xl" style={{ fontFamily: "var(--font-display)" }}>
+        {value}
+      </div>
+      <div className="mt-1 text-xs opacity-75 md:text-sm">{label}</div>
+    </div>
+  );
+}
+
+function FooterCol({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div>
+      <div className="text-sm font-semibold">{title}</div>
+      <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+        {items.map((it) => (
+          <li key={it}>
+            <a href="#" className="transition hover:text-foreground">{it}</a>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
