@@ -2,6 +2,8 @@ import { Plus, ArrowDownToLine, Repeat } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { formatAmount, formatMoney } from "@/lib/format";
 import { useMock } from "@/mock/store";
+import { usePageLoading } from "@/hooks/use-page-loading";
+import { LoadingSkeleton } from "@/components/console/loading-skeleton";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +14,8 @@ export default function BalancesPage() {
   const { t } = useI18n();
   const { toast } = useToast();
   const { balances, totalUsdEq } = useMock();
+  const loading = usePageLoading();
+  if (loading) return <LoadingSkeleton cards={6} />;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

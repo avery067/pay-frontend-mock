@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, CreditCard } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { formatAmount, formatMoney } from "@/lib/format";
 import { useMock } from "@/mock/store";
+import { usePageLoading } from "@/hooks/use-page-loading";
+import { LoadingSkeleton } from "@/components/console/loading-skeleton";
+import { EmptyState } from "@/components/console/empty-state";
 import { PageHeader } from "@/components/console/page-header";
 import { Button } from "@/components/ui/button";
 import { CardVisual } from "@/components/pay/card-visual";
@@ -14,6 +17,8 @@ export default function CardsPage() {
   const { t } = useI18n();
   const { cards } = useMock();
   const [cardId, setCardId] = useState<string | null>(null);
+  const loading = usePageLoading();
+  if (loading) return <LoadingSkeleton cards={6} />;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -58,6 +63,8 @@ export default function CardsPage() {
           );
         })}
       </div>
+
+      {cards.length === 0 && <EmptyState icon={<CreditCard className="size-6" />} title={t("common.empty")} />}
 
       <CardDrawer cardId={cardId} onOpenChange={(o) => { if (!o) setCardId(null); }} />
     </div>

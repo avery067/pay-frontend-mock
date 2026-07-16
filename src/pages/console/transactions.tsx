@@ -5,6 +5,8 @@ import { useI18n } from "@/i18n";
 import { formatMoney } from "@/lib/format";
 import { exportCsv } from "@/lib/export-csv";
 import { ledger, type LedgerTxn } from "@/mock/more";
+import { usePageLoading } from "@/hooks/use-page-loading";
+import { LoadingSkeleton } from "@/components/console/loading-skeleton";
 import { PageHeader } from "@/components/console/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,6 +36,7 @@ export default function TransactionsPage() {
   const [type, setType] = useState<string>("all");
   const [q, setQ] = useState("");
   const [sel, setSel] = useState<LedgerTxn | null>(null);
+  const loading = usePageLoading();
 
   const rows = ledger.filter(
     (x) =>
@@ -42,6 +45,8 @@ export default function TransactionsPage() {
         x.desc.toLowerCase().includes(q.toLowerCase()) ||
         x.id.toLowerCase().includes(q.toLowerCase())),
   );
+
+  if (loading) return <LoadingSkeleton rows={8} />;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -115,6 +120,11 @@ export default function TransactionsPage() {
                     <td className="px-6 py-3 text-right tabular-nums text-muted-foreground">{x.date}</td>
                   </tr>
                 ))}
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-sm text-muted-foreground">{t("common.empty")}</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

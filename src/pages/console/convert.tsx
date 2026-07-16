@@ -3,6 +3,7 @@ import { ArrowDown } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { formatAmount } from "@/lib/format";
 import { computeQuote, CURRENCIES } from "@/lib/quote";
+import { useMock } from "@/mock/store";
 import { settlements } from "@/mock/data";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +19,9 @@ export default function ConvertPage() {
   const [from, setFrom] = useState("USD");
   const [to, setTo] = useState("CNY");
   const q = computeQuote(pay, from, to);
+  const { balances } = useMock();
+  const avail = balances.find((b) => b.currency === from)?.available ?? 0;
+  const insufficient = pay > avail;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -61,7 +65,8 @@ export default function ConvertPage() {
               <Row label={t("landing.fee")} value={`${from} ${formatAmount(q.fee)}`} />
             </div>
 
-            <Button className="w-full" size="lg" onClick={() => toast(t("cvt.done"))}>
+            {insufficient && <p className="text-xs text-danger">{t("common.insufficient")}</p>}
+            <Button className="w-full" size="lg" disabled={insufficient} onClick={() => toast(t("cvt.done"))}>
               {t("cvt.confirm")}
             </Button>
           </CardContent>

@@ -3,6 +3,8 @@ import { Zap } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { formatMoney } from "@/lib/format";
 import { useMock } from "@/mock/store";
+import { usePageLoading } from "@/hooks/use-page-loading";
+import { LoadingSkeleton } from "@/components/console/loading-skeleton";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +33,8 @@ export default function PaymentsPage() {
   } = useMock();
   const [txnOrder, setTxnOrder] = useState<string | null>(null);
   const [batchId, setBatchId] = useState<string | null>(null);
+  const loading = usePageLoading();
+  if (loading) return <LoadingSkeleton kpis={4} rows={6} />;
 
   const kpis = [
     { label: t("console.kpiVolume"), value: formatMoney(acqTxns.reduce((s, x) => s + x.gross, 0)) },

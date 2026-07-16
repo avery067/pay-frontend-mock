@@ -147,6 +147,9 @@ export const zh = {
     back: "返回",
     next: "下一步",
     prev: "上一步",
+    empty: "暂无数据",
+    insufficient: "余额不足",
+    retry: "重试",
   },
   menu: {
     account: "账户设置",

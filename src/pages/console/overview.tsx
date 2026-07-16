@@ -14,6 +14,8 @@ import { useI18n } from "@/i18n";
 import { formatAmount, formatMoney } from "@/lib/format";
 import { useMock } from "@/mock/store";
 import { volumeSeries } from "@/mock/more";
+import { usePageLoading } from "@/hooks/use-page-loading";
+import { LoadingSkeleton } from "@/components/console/loading-skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -35,6 +37,8 @@ export default function OverviewPage() {
   const { t } = useI18n();
   const { acqTxns, batches } = useMock();
   const [order, setOrder] = useState<string | null>(null);
+  const loading = usePageLoading();
+  if (loading) return <LoadingSkeleton kpis={4} rows={5} />;
   const tooltipStyle = {
     background: "var(--popover)",
     border: "1px solid var(--border)",

@@ -153,6 +153,9 @@ export const en: Dict = {
     back: "Back",
     next: "Next",
     prev: "Back",
+    empty: "No data",
+    insufficient: "Insufficient balance",
+    retry: "Retry",
   },
   menu: {
     account: "Account",

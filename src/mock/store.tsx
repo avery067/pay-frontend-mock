@@ -21,6 +21,8 @@ import {
   type SettlementBatch,
   type PayoutRecord,
   type ReserveHold,
+  disputes as disputesSeed,
+  type Dispute,
 } from "./more";
 import { cards as initialCards, type Card } from "./data";
 
@@ -82,6 +84,10 @@ type MockValue = {
   advanceBatch: (batchId: string) => void;
   instantPayout: (batchId: string) => void;
   releaseReserve: (reserveId: string) => void;
+  // 争议闭环
+  disputes: Dispute[];
+  submitDisputeEvidence: (id: string) => void;
+  acceptDispute: (id: string) => void;
 };
 
 const MockCtx = createContext<MockValue | null>(null);
@@ -115,6 +121,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [batches, setBatches] = useState<SettlementBatch[]>(batchesSeed);
   const [payoutRecords, setPayoutRecords] = useState<PayoutRecord[]>(payoutRecordsSeed);
   const [reserves, setReserves] = useState<ReserveHold[]>(reservesSeed);
+  const [disputes, setDisputes] = useState<Dispute[]>(disputesSeed);
 
   const recordsRef = useRef(records);
   recordsRef.current = records;
@@ -124,6 +131,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
   acqTxnsRef.current = acqTxns;
   const reservesRef = useRef(reserves);
   reservesRef.current = reserves;
+  const disputesRef = useRef(disputes);
+  disputesRef.current = disputes;
   const seqRef = useRef(43);
   const cardSeqRef = useRef(0);
   const poSeqRef = useRef(1);
@@ -229,6 +238,20 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setBalances((bs) => releaseReserveBal(bs, r.amount));
   };
 
+  // ── 争议闭环：举证 → 审核中 → 胜诉；接受 → 败诉(从 USD 余额扣回) ──
+  const submitDisputeEvidence: MockValue["submitDisputeEvidence"] = (id) => {
+    setDisputes((prev) => prev.map((d) => (d.id === id && d.status === "need" ? { ...d, status: "review" } : d)));
+    window.setTimeout(() => {
+      setDisputes((prev) => prev.map((d) => (d.id === id && d.status === "review" ? { ...d, status: "won" } : d)));
+    }, 6000);
+  };
+  const acceptDispute: MockValue["acceptDispute"] = (id) => {
+    const d = disputesRef.current.find((x) => x.id === id);
+    if (!d || d.status !== "need") return;
+    setDisputes((prev) => prev.map((x) => (x.id === id ? { ...x, status: "lost" } : x)));
+    setBalances((bs) => creditUsd(bs, -d.amount));
+  };
+
   // 自动推进：结汇处理中的记录 + 已开始结算的批次
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -291,6 +314,9 @@ export function MockProvider({ children }: { children: ReactNode }) {
         advanceBatch,
         instantPayout,
         releaseReserve,
+        disputes,
+        submitDisputeEvidence,
+        acceptDispute,
       }}
     >
       {children}
