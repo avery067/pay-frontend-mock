@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, ShieldCheck } from "lucide-react";
+import { Plus, RotateCcw, ShieldCheck } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { formatAmount, formatMoney } from "@/lib/format";
 import { settleQuota } from "@/mock/more";
@@ -7,6 +7,7 @@ import { useMock } from "@/mock/store";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/pay/status-badge";
@@ -23,7 +24,8 @@ const STEP_KEYS = [
 
 export default function SettlementPage() {
   const { t } = useI18n();
-  const { funds, records, pendingUsd } = useMock();
+  const { toast } = useToast();
+  const { funds, records, pendingUsd, retrySettlement } = useMock();
   const [openRef, setOpenRef] = useState<string | null>(null);
   const quotaPct = Math.round((settleQuota.usedRmb / settleQuota.totalRmb) * 100);
 
@@ -171,7 +173,22 @@ export default function SettlementPage() {
                             <Badge variant="warning">{t("stl.toDeclare")}</Badge>
                           )}
                         </td>
-                        <td className="px-6 py-3"><StatusBadge status={r.status} /></td>
+                        <td className="px-6 py-3">
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={r.status} />
+                            {r.status === "failed" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 gap-1 px-2 text-xs text-danger hover:text-danger"
+                                onClick={(e) => { e.stopPropagation(); retrySettlement(r.ref); toast(t("stl.retryDone")); }}
+                              >
+                                <RotateCcw className="size-3" />
+                                {t("stl.retry")}
+                              </Button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

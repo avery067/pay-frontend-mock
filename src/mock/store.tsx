@@ -24,7 +24,7 @@ import {
   disputes as disputesSeed,
   type Dispute,
 } from "./more";
-import { cards as initialCards, type Card } from "./data";
+import { cards as initialCards, notifications as notificationsSeed, type Card } from "./data";
 
 /** 结汇阶段：0 发起 · 1 合规审核 · 2 兑换 · 3 汇出 · 4 到账 */
 export type SettleStage = 0 | 1 | 2 | 3 | 4;
@@ -42,6 +42,9 @@ export type SettleRec = {
 
 export type CardTxn = { id: string; merchant: string; amount: number };
 
+/** 通知：loop 事件（到账 / 打款 / 争议 / 开卡）会实时推入 */
+export type Notif = { id: string; type: string; zh: string; en: string; time: string; live?: boolean; unread?: boolean };
+
 const seedRecords: SettleRec[] = seedRecordsRaw.map((r) => {
   const failed = r.status === "failed";
   return {
@@ -56,6 +59,8 @@ const seedRecords: SettleRec[] = seedRecordsRaw.map((r) => {
   };
 });
 
+const seedNotifs: Notif[] = notificationsSeed.map((n) => ({ ...n }));
+
 type MockValue = {
   balances: Balance[];
   funds: SettleFund[];
@@ -64,6 +69,7 @@ type MockValue = {
   totalUsdEq: number;
   initiateSettlement: (params: { fundId?: string; from: string; amount: number }) => string;
   advance: (ref: string) => void;
+  retrySettlement: (ref: string) => void;
   cards: Card[];
   cardTxns: Record<string, CardTxn[]>;
   issueCard: (p: { name: string; type: "virtual" | "physical"; brand: string; last4: string; currency: string; limit: number }) => string;
@@ -89,6 +95,10 @@ type MockValue = {
   submitDisputeEvidence: (id: string) => void;
   acceptDispute: (id: string) => void;
   withdraw: (p: { currency: string; amount: number }) => void;
+  // 通知
+  notifications: Notif[];
+  unreadCount: number;
+  markNotifsRead: () => void;
   reset: () => void;
 };
 
@@ -124,6 +134,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [payoutRecords, setPayoutRecords] = useState<PayoutRecord[]>(payoutRecordsSeed);
   const [reserves, setReserves] = useState<ReserveHold[]>(reservesSeed);
   const [disputes, setDisputes] = useState<Dispute[]>(disputesSeed);
+  const [notifs, setNotifs] = useState<Notif[]>(seedNotifs);
 
   const recordsRef = useRef(records);
   recordsRef.current = records;
@@ -138,6 +149,12 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const seqRef = useRef(43);
   const cardSeqRef = useRef(0);
   const poSeqRef = useRef(1);
+  const notifSeqRef = useRef(0);
+
+  // ── 通知：loop 事件实时推送到铃铛 + 通知页 ──
+  const pushNotif = (type: string, zh: string, en: string) =>
+    setNotifs((prev) => [{ id: `n${100 + ++notifSeqRef.current}`, type, zh, en, time: "", live: true, unread: true }, ...prev].slice(0, 40));
+  const markNotifsRead = () => setNotifs((prev) => prev.map((n) => ({ ...n, unread: false })));
 
   // ── 结汇 ──
   const initiateSettlement: MockValue["initiateSettlement"] = ({ fundId, from, amount }) => {
@@ -157,9 +174,16 @@ export function MockProvider({ children }: { children: ReactNode }) {
     if (stage === 4) {
       setRecords((prev) => prev.map((x) => (x.ref === ref ? { ...x, stage, status: "settled", declared: true } : x)));
       setBalances((bs) => creditCny(bs, r.rmb));
+      pushNotif("success", `结汇 ${ref} 已到账`, `Settlement ${ref} arrived`);
     } else {
       setRecords((prev) => prev.map((x) => (x.ref === ref ? { ...x, stage } : x)));
     }
+  };
+  // 结汇失败重试：失败单回到发起态，由自动推进重跑闭环
+  const retrySettlement: MockValue["retrySettlement"] = (ref) => {
+    setRecords((prev) =>
+      prev.map((x) => (x.ref === ref && x.status === "failed" ? { ...x, stage: 0, status: "processing", declared: false } : x)),
+    );
   };
 
   // ── 发卡 ──
@@ -167,7 +191,10 @@ export function MockProvider({ children }: { children: ReactNode }) {
     const id = `cx${++cardSeqRef.current}`;
     const card: Card = { id, ...p, spent: 0, status: "issuing" };
     setCards((prev) => [card, ...prev]);
-    window.setTimeout(() => setCards((prev) => prev.map((c) => (c.id === id ? { ...c, status: "active" } : c))), 4200);
+    window.setTimeout(() => {
+      setCards((prev) => prev.map((c) => (c.id === id ? { ...c, status: "active" } : c)));
+      pushNotif("success", `${p.name} 开卡成功`, `Card “${p.name}” issued`);
+    }, 4200);
     return id;
   };
   const spendOnCard: MockValue["spendOnCard"] = ({ cardId, currency, merchant, amount }) => {
@@ -186,10 +213,24 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setAcqTxns((prev) => prev.map((t) => (t.order === order && t.status === "authorized" ? { ...t, status: "captured", stage: 1 } : t)));
   const voidTxn: MockValue["voidTxn"] = (order) =>
     setAcqTxns((prev) => prev.map((t) => (t.order === order && t.status === "authorized" ? { ...t, status: "voided" } : t)));
+  // 退款：已入账 → 从 USD 扣回；未打款且在批次内 → 冲减该批次毛额/净额（及在途打款额）
   const refundTxn: MockValue["refundTxn"] = ({ order, amount }) => {
-    const t = acqTxnsRef.current.find((x) => x.order === order);
+    const tx = acqTxnsRef.current.find((x) => x.order === order);
     setAcqTxns((prev) => prev.map((x) => (x.order === order ? { ...x, status: "refunded" } : x)));
-    if (t && t.status === "credited") setBalances((bs) => creditUsd(bs, -amount));
+    if (!tx) return;
+    if (tx.status === "credited") {
+      setBalances((bs) => creditUsd(bs, -amount));
+      return;
+    }
+    if (tx.batchId) {
+      const b = batchesRef.current.find((x) => x.id === tx.batchId);
+      if (b && b.status !== "credited") {
+        setBatches((prev) => prev.map((x) => (x.id === b.id ? { ...x, gross: Math.max(0, x.gross - amount), net: Math.max(0, x.net - amount) } : x)));
+        setPayoutRecords((prev) =>
+          prev.map((p) => (p.batchId === b.id && p.status === "in_transit" ? { ...p, amount: Math.max(0, p.amount - amount) } : p)),
+        );
+      }
+    }
   };
 
   const finishBatch = (b: SettlementBatch, method: "standard" | "instant", fee: number) => {
@@ -209,6 +250,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
       ]);
     }
     setAcqTxns((prev) => prev.map((t) => (b.txnOrders.includes(t.order) ? { ...t, stage: 5, status: "credited" } : t)));
+    pushNotif("success", `结算批次 ${b.id} 已打款入账`, `Payout ${b.id} credited`);
   };
 
   const advanceBatch: MockValue["advanceBatch"] = (id) => {
@@ -245,6 +287,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setDisputes((prev) => prev.map((d) => (d.id === id && d.status === "need" ? { ...d, status: "review" } : d)));
     window.setTimeout(() => {
       setDisputes((prev) => prev.map((d) => (d.id === id && d.status === "review" ? { ...d, status: "won" } : d)));
+      pushNotif("success", `争议 ${id} 已胜诉`, `Dispute ${id} won`);
     }, 6000);
   };
   const acceptDispute: MockValue["acceptDispute"] = (id) => {
@@ -252,6 +295,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     if (!d || d.status !== "need") return;
     setDisputes((prev) => prev.map((x) => (x.id === id ? { ...x, status: "lost" } : x)));
     setBalances((bs) => creditUsd(bs, -d.amount));
+    pushNotif("warning", `争议 ${id} 已接受拒付`, `Dispute ${id} — chargeback accepted`);
   };
 
   const withdraw: MockValue["withdraw"] = ({ currency, amount }) => {
@@ -273,6 +317,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setPayoutRecords(payoutRecordsSeed);
     setReserves(reservesSeed);
     setDisputes(disputesSeed);
+    setNotifs(seedNotifs);
   };
 
   // 自动推进：结汇处理中的记录 + 已开始结算的批次
@@ -281,17 +326,20 @@ export function MockProvider({ children }: { children: ReactNode }) {
       const recs = recordsRef.current;
       if (recs.some((r) => r.status === "processing")) {
         let creditRmb = 0;
+        const settledRefs: string[] = [];
         const next = recs.map((r) => {
           if (r.status !== "processing") return r;
           const stage = Math.min(4, r.stage + 1) as SettleStage;
           if (stage === 4) {
             creditRmb += r.rmb;
+            settledRefs.push(r.ref);
             return { ...r, stage, status: "settled" as const, declared: true };
           }
           return { ...r, stage };
         });
         setRecords(next);
         if (creditRmb > 0) setBalances((bs) => creditCny(bs, creditRmb));
+        settledRefs.forEach((ref) => pushNotif("success", `结汇 ${ref} 已到账`, `Settlement ${ref} arrived`));
       }
       const mv = batchesRef.current.find((b) => b.status === "settling" || b.status === "paid_out");
       if (mv) advanceBatch(mv.id);
@@ -307,6 +355,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const capturedNet = acqTxns.filter((t) => t.status === "captured").reduce((s, t) => s + t.net, 0);
   const pendingPoolUsd = nonCreditedNet + capturedNet;
   const instantAvailableUsd = nonCreditedNet;
+  const unreadCount = notifs.filter((n) => n.unread).length;
 
   return (
     <MockCtx.Provider
@@ -318,6 +367,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
         totalUsdEq,
         initiateSettlement,
         advance,
+        retrySettlement,
         cards,
         cardTxns,
         issueCard,
@@ -341,6 +391,9 @@ export function MockProvider({ children }: { children: ReactNode }) {
         submitDisputeEvidence,
         acceptDispute,
         withdraw,
+        notifications: notifs,
+        unreadCount,
+        markNotifsRead,
         reset,
       }}
     >

@@ -498,6 +498,9 @@ export const en: Dict = {
     stage: "Stage",
     advance: "Advance (demo)",
     liveHint: "Settlement advances automatically; RMB is credited on arrival (demo)",
+    retry: "Retry",
+    retryDone: "Settlement re-initiated (sample)",
+    failHint: "This settlement failed on documents / compliance; fix and retry.",
   },
   onb: {
     brand: "Open your cross-border account",
@@ -593,6 +596,8 @@ export const en: Dict = {
     markAll: "Mark all read",
     allRead: "All marked as read (sample)",
     empty: "No notifications",
+    now: "just now",
+    unread: "unread",
   },
   stmt: {
     title: "Statements",

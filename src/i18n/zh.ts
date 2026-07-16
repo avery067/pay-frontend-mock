@@ -492,6 +492,9 @@ export const zh = {
     stage: "阶段",
     advance: "推进一步（示例）",
     liveHint: "结汇进度会自动推进，到账后 RMB 余额实时入账（示例）",
+    retry: "重试结汇",
+    retryDone: "已重新发起结汇（示例）",
+    failHint: "该笔结汇因单据 / 合规原因未通过，可修正后重试。",
   },
   onb: {
     brand: "开立你的跨境账户",
@@ -587,6 +590,8 @@ export const zh = {
     markAll: "全部已读",
     allRead: "已全部标记为已读（示例）",
     empty: "暂无通知",
+    now: "刚刚",
+    unread: "未读",
   },
   stmt: {
     title: "对账单",

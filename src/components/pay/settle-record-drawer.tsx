@@ -1,4 +1,4 @@
-import { Check, Download, X } from "lucide-react";
+import { AlertTriangle, Check, Download, RotateCcw, X } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { formatAmount } from "@/lib/format";
@@ -13,6 +13,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { StatusBadge } from "./status-badge";
 
 const STEP_KEYS = [
@@ -31,7 +32,8 @@ export function SettleRecordDrawer({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useI18n();
-  const { records, advance } = useMock();
+  const { toast } = useToast();
+  const { records, advance, retrySettlement } = useMock();
   const rec = openRef ? records.find((r) => r.ref === openRef) ?? null : null;
 
   return (
@@ -65,12 +67,23 @@ export function SettleRecordDrawer({
               {rec.status === "processing" && (
                 <p className="rounded-lg bg-info/10 p-3 text-xs text-info">{t("stl.liveHint")}</p>
               )}
+              {rec.status === "failed" && (
+                <p className="flex items-start gap-2 rounded-lg bg-danger/10 p-3 text-xs text-danger">
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                  {t("stl.failHint")}
+                </p>
+              )}
             </SheetBody>
 
             <SheetFooter>
               {rec.status === "processing" ? (
                 <Button className="w-full" onClick={() => advance(rec.ref)}>
                   {t("stl.advance")}
+                </Button>
+              ) : rec.status === "failed" ? (
+                <Button className="w-full" onClick={() => { retrySettlement(rec.ref); toast(t("stl.retryDone")); }}>
+                  <RotateCcw />
+                  {t("stl.retry")}
                 </Button>
               ) : (
                 <Button variant="outline" className="w-full">

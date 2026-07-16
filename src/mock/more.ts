@@ -107,6 +107,7 @@ export const settleRecords: SettleRecord[] = [
   { ref: "STL-20260716-0042", from: "USD", amount: 10000, rmb: 71482.45, rate: 7.182, declared: true, status: "settled", date: "07-16 09:24" },
   { ref: "STL-20260715-0031", from: "EUR", amount: 8000, rmb: 62592.0, rate: 7.824, declared: true, status: "settled", date: "07-15 16:10" },
   { ref: "STL-20260715-0022", from: "USD", amount: 15000, rmb: 107235.0, rate: 7.182, declared: false, status: "processing", date: "07-15 11:03" },
+  { ref: "STL-20260715-0019", from: "GBP", amount: 6000, rmb: 54810.0, rate: 9.135, declared: false, status: "failed", date: "07-15 15:03" },
 ];
 
 // 年度便利化额度（RMB，示例）

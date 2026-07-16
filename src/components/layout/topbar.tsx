@@ -1,7 +1,7 @@
 import { Bell, LogOut, Menu, Search, Settings, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useI18n } from "@/i18n";
-import { notifications } from "@/mock/data";
+import { useMock } from "@/mock/store";
 import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 import { LangSwitcher } from "@/components/common/lang-switcher";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
 export function Topbar({ onMenu, onSearch }: { onMenu?: () => void; onSearch?: () => void }) {
   const { t, lang } = useI18n();
   const navigate = useNavigate();
+  const { notifications, unreadCount, markNotifsRead } = useMock();
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur md:px-6">
@@ -39,7 +40,7 @@ export function Topbar({ onMenu, onSearch }: { onMenu?: () => void; onSearch?: (
         <ThemeSwitcher className="hidden sm:flex" />
 
         {/* 通知 */}
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={(o) => { if (o && unreadCount > 0) markNotifsRead(); }}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
@@ -47,16 +48,20 @@ export function Topbar({ onMenu, onSearch }: { onMenu?: () => void; onSearch?: (
               aria-label={t("a11y.notifications")}
             >
               <Bell className="size-4" />
-              <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-danger" />
+              {unreadCount > 0 && (
+                <span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-semibold leading-4 text-danger-foreground tabular-nums">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-72">
             <DropdownMenuLabel>{t("menu.notifTitle")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {notifications.slice(0, 4).map((n) => (
+            {notifications.slice(0, 5).map((n) => (
               <DropdownMenuItem key={n.id} className="flex-col items-start gap-0.5">
                 <span className="text-sm">{lang === "zh" ? n.zh : n.en}</span>
-                <span className="tabular-nums text-xs text-muted-foreground">{n.time}</span>
+                <span className="tabular-nums text-xs text-muted-foreground">{n.live ? t("notif.now") : n.time}</span>
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
