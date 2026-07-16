@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { useMock } from "@/mock/store";
 import { CURRENCIES } from "@/lib/quote";
 import {
   Dialog,
@@ -19,13 +20,20 @@ import { useToast } from "@/components/ui/toast";
 export function CreateLinkDialog({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const { toast } = useToast();
+  const { createLink } = useMock();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<"once" | "reuse">("once");
   const [currency, setCurrency] = useState("USD");
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState(299);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    createLink({ name: name.trim() || t("links.namePh"), amount, currency, type });
     setOpen(false);
+    setName("");
+    setAmount(299);
+    setType("once");
     toast(t("links.created"));
   };
 
@@ -39,12 +47,12 @@ export function CreateLinkDialog({ children }: { children: ReactNode }) {
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="lname">{t("links.name")}</Label>
-            <Input id="lname" placeholder={t("links.namePh")} required />
+            <Input id="lname" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("links.namePh")} required />
           </div>
           <div className="grid grid-cols-[1fr_7rem] gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="lamt">{t("links.amount")}</Label>
-              <Input id="lamt" type="number" defaultValue={299} className="tabular-nums" />
+              <Input id="lamt" type="number" value={amount} onChange={(e) => setAmount(Math.max(0, Number(e.target.value) || 0))} className="tabular-nums" />
             </div>
             <div className="flex flex-col justify-end">
               <select

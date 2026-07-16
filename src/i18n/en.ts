@@ -377,6 +377,9 @@ export const en: Dict = {
     detailTitle: "Payment link",
     preview: "Preview checkout",
     created: "Link created (sample)",
+    collect: "Simulate payment",
+    collected: "Payment received (sample)",
+    net: "Net credited",
   },
   disputes: {
     title: "Disputes",

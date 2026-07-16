@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, QrCode, Copy, ExternalLink } from "lucide-react";
+import { Plus, QrCode, Copy, ExternalLink, Zap } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { formatMoney } from "@/lib/format";
-import { paymentLinks, type PayLink } from "@/mock/more";
+import { type PayLink } from "@/mock/more";
+import { useMock } from "@/mock/store";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -25,7 +26,9 @@ const HOST = "pay.meridian.example/l";
 export default function PaymentLinksPage() {
   const { t } = useI18n();
   const { toast } = useToast();
-  const [sel, setSel] = useState<PayLink | null>(null);
+  const { paymentLinks, collectLink } = useMock();
+  const [selId, setSelId] = useState<string | null>(null);
+  const sel: PayLink | null = selId ? paymentLinks.find((l) => l.id === selId) ?? null : null;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -72,13 +75,24 @@ export default function PaymentLinksPage() {
                         {l.status === "paid" ? t("links.statusPaid") : t("links.statusActive")}
                       </Badge>
                     </td>
-                    <td className="px-3 py-3 tabular-nums text-muted-foreground">{l.created}</td>
+                    <td className="px-3 py-3 tabular-nums text-muted-foreground">{l.created || t("txn.now")}</td>
                     <td className="px-6 py-3">
                       <div className="flex items-center justify-end gap-1">
+                        {l.status === "active" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 text-pos hover:text-pos"
+                            onClick={() => { collectLink(l.id); toast(t("links.collected")); }}
+                          >
+                            <Zap className="size-3.5" />
+                            {t("links.collect")}
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon" onClick={() => toast(t("links.copied"))} aria-label={t("links.copy")}>
                           <Copy />
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => setSel(l)}>
+                        <Button variant="outline" size="sm" onClick={() => setSelId(l.id)}>
                           {t("links.view")}
                         </Button>
                       </div>
@@ -91,7 +105,7 @@ export default function PaymentLinksPage() {
         </CardContent>
       </Card>
 
-      <Sheet open={!!sel} onOpenChange={(o) => !o && setSel(null)}>
+      <Sheet open={!!sel} onOpenChange={(o) => !o && setSelId(null)}>
         <SheetContent>
           {sel && (
             <>
@@ -122,6 +136,17 @@ export default function PaymentLinksPage() {
                   <ExternalLink />
                   {t("links.preview")}
                 </Link>
+
+                {sel.status === "active" ? (
+                  <Button className="w-full" onClick={() => { collectLink(sel.id); toast(t("links.collected")); }}>
+                    <Zap />
+                    {t("links.collect")}
+                  </Button>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 rounded-xl bg-success/10 py-2.5 text-sm font-medium text-success">
+                    {t("links.statusPaid")}
+                  </div>
+                )}
               </SheetBody>
             </>
           )}

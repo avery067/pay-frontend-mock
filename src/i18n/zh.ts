@@ -371,6 +371,9 @@ export const zh = {
     detailTitle: "收款链接",
     preview: "预览结账页",
     created: "链接已创建（示例）",
+    collect: "模拟收款",
+    collected: "已收到一笔付款（示例）",
+    net: "到账净额",
   },
   disputes: {
     title: "争议",

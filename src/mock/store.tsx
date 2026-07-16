@@ -25,6 +25,8 @@ import {
   type Dispute,
   ledger as ledgerSeed,
   type LedgerTxn,
+  paymentLinks as linksSeed,
+  type PayLink,
 } from "./more";
 import { cards as initialCards, notifications as notificationsSeed, type Card } from "./data";
 
@@ -101,6 +103,10 @@ type MockValue = {
   ledger: LedgerTxn[];
   convert: (p: { from: string; to: string; pay: number; get: number }) => void;
   transfer: (p: { recipient: string; amount: number; currency: string; note?: string }) => void;
+  // 收款链接闭环
+  paymentLinks: PayLink[];
+  createLink: (p: { name: string; amount: number; currency: string; type: "once" | "reuse" }) => void;
+  collectLink: (id: string) => void;
   // 通知
   notifications: Notif[];
   unreadCount: number;
@@ -142,6 +148,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [disputes, setDisputes] = useState<Dispute[]>(disputesSeed);
   const [notifs, setNotifs] = useState<Notif[]>(seedNotifs);
   const [ledger, setLedger] = useState<LedgerTxn[]>(ledgerSeed);
+  const [links, setLinks] = useState<PayLink[]>(linksSeed);
 
   const recordsRef = useRef(records);
   recordsRef.current = records;
@@ -153,20 +160,29 @@ export function MockProvider({ children }: { children: ReactNode }) {
   reservesRef.current = reserves;
   const disputesRef = useRef(disputes);
   disputesRef.current = disputes;
+  const linksRef = useRef(links);
+  linksRef.current = links;
   const seqRef = useRef(43);
   const cardSeqRef = useRef(0);
   const poSeqRef = useRef(1);
   const notifSeqRef = useRef(0);
   const ledgerSeqRef = useRef(90231);
+  const linkSeqRef = useRef(3021);
+  const acqSeqRef = useRef(88231);
 
   // ── 通知：loop 事件实时推送到铃铛 + 通知页 ──
-  const pushNotif = (type: string, zh: string, en: string) =>
-    setNotifs((prev) => [{ id: `n${100 + ++notifSeqRef.current}`, type, zh, en, time: "", live: true, unread: true }, ...prev].slice(0, 40));
+  // 注：id 在更新函数外自增，避免 StrictMode 双调用导致序号跳号（保持更新函数纯净）
+  const pushNotif = (type: string, zh: string, en: string) => {
+    const id = `n${100 + ++notifSeqRef.current}`;
+    setNotifs((prev) => [{ id, type, zh, en, time: "", live: true, unread: true }, ...prev].slice(0, 40));
+  };
   const markNotifsRead = () => setNotifs((prev) => prev.map((n) => ({ ...n, unread: false })));
 
   // ── 统一台账：所有资金流实时入账，交易页/命令面板可见 ──
-  const pushLedger = (e: Omit<LedgerTxn, "id" | "date" | "live">) =>
-    setLedger((prev) => [{ ...e, id: `TX-${++ledgerSeqRef.current}`, date: "", live: true }, ...prev].slice(0, 60));
+  const pushLedger = (e: Omit<LedgerTxn, "id" | "date" | "live">) => {
+    const id = `TX-${++ledgerSeqRef.current}`;
+    setLedger((prev) => [{ ...e, id, date: "", live: true }, ...prev].slice(0, 60));
+  };
 
   // ── 结汇 ──
   const initiateSettlement: MockValue["initiateSettlement"] = ({ fundId, from, amount }) => {
@@ -352,6 +368,29 @@ export function MockProvider({ children }: { children: ReactNode }) {
     }, 4200);
   };
 
+  // ── 收款链接闭环：创建链接；模拟客户支付 → 净额入账 + 台账 + 通知 + 一次性置为已支付 ──
+  const createLink: MockValue["createLink"] = ({ name, amount, currency, type }) => {
+    const seq = ++linkSeqRef.current;
+    const link: PayLink = { id: `PL-${seq}`, name, amount, currency, type, status: "active", created: "", slug: `link-${seq}` };
+    setLinks((prev) => [link, ...prev]);
+  };
+  const collectLink: MockValue["collectLink"] = (id) => {
+    const l = linksRef.current.find((x) => x.id === id);
+    if (!l || l.status === "paid") return;
+    const fee = Math.round((l.amount * 0.029 + 0.3) * 100) / 100;
+    const net = Math.round((l.amount - fee) * 100) / 100;
+    const usdPer = getRate(l.currency, "USD");
+    setBalances((bs) => bs.map((b) => (b.currency === l.currency ? { ...b, available: b.available + net, usdEq: b.usdEq + net * usdPer } : b)));
+    const order = `OD-${++acqSeqRef.current}`;
+    setAcqTxns((prev) => [
+      { order, merchant: l.name, method: "收款链接", gross: l.amount, fee, reserve: 0, net, currency: l.currency, captureMode: "auto", stage: 5, status: "credited", time: "", batchId: undefined },
+      ...prev,
+    ]);
+    pushLedger({ type: "payment", desc: `收款链接 · ${l.name}`, dir: "in", amount: net, currency: l.currency, status: "settled" });
+    pushNotif("success", `收款链接「${l.name}」收到付款 ${l.currency} ${net.toLocaleString()}`, `Payment link “${l.name}” collected`);
+    if (l.type === "once") setLinks((prev) => prev.map((x) => (x.id === id ? { ...x, status: "paid" } : x)));
+  };
+
   // 一键重置所有示例状态到初始（原型 mock）
   const reset = () => {
     setBalances(initialBalances);
@@ -366,6 +405,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setDisputes(disputesSeed);
     setNotifs(seedNotifs);
     setLedger(ledgerSeed);
+    setLinks(linksSeed);
   };
 
   // 自动推进：结汇处理中的记录 + 已开始结算的批次
@@ -445,6 +485,9 @@ export function MockProvider({ children }: { children: ReactNode }) {
         ledger,
         convert,
         transfer,
+        paymentLinks: links,
+        createLink,
+        collectLink,
         notifications: notifs,
         unreadCount,
         markNotifsRead,
