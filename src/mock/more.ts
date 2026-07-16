@@ -111,3 +111,37 @@ export const settleRecords: SettleRecord[] = [
 
 // 年度便利化额度（RMB，示例）
 export const settleQuota = { usedRmb: 22_400_000, totalRmb: 35_000_000 };
+
+// 收款链接（示例）
+export type PayLink = {
+  id: string;
+  name: string;
+  amount: number;
+  currency: string;
+  type: "once" | "reuse";
+  status: "active" | "paid";
+  created: string;
+  slug: string;
+};
+export const paymentLinks: PayLink[] = [
+  { id: "PL-3021", name: "订阅费 Pro（示例）", amount: 299, currency: "USD", type: "reuse", status: "active", created: "07-14", slug: "pro" },
+  { id: "PL-3018", name: "定金 · 订单 8842（示例）", amount: 1500, currency: "USD", type: "once", status: "paid", created: "07-12", slug: "dep-8842" },
+  { id: "PL-3010", name: "设计服务费（示例）", amount: 800, currency: "EUR", type: "once", status: "active", created: "07-10", slug: "design" },
+];
+
+// 争议 / 拒付（示例）
+export type Dispute = {
+  id: string;
+  order: string;
+  reason: "fraud" | "product" | "dup";
+  amount: number;
+  currency: string;
+  status: "need" | "review" | "won" | "lost";
+  deadline: string;
+  date: string;
+};
+export const disputes: Dispute[] = [
+  { id: "DP-5521", order: "OD-88231", reason: "fraud", amount: 1200, currency: "USD", status: "need", deadline: "07-20", date: "07-16" },
+  { id: "DP-5510", order: "OD-88190", reason: "product", amount: 640, currency: "USD", status: "review", deadline: "07-18", date: "07-14" },
+  { id: "DP-5498", order: "OD-88102", reason: "dup", amount: 220, currency: "USD", status: "won", deadline: "07-10", date: "07-08" },
+];

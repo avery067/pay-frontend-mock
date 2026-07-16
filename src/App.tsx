@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import LandingPage from "@/pages/landing";
 import LoginPage from "@/pages/login";
 import OnboardingPage from "@/pages/onboarding";
+import CheckoutPage from "@/pages/checkout";
 import { ConsoleLayout } from "@/components/layout/console-layout";
 import OverviewPage from "@/pages/console/overview";
 import SettlementPage from "@/pages/console/settlement";
@@ -25,6 +26,7 @@ export function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/onboarding" element={<OnboardingPage />} />
+      <Route path="/checkout" element={<CheckoutPage />} />
       <Route path="/app" element={<ConsoleLayout />}>
         <Route index element={<OverviewPage />} />
         <Route path="balances" element={<BalancesPage />} />

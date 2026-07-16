@@ -6,11 +6,10 @@ import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/pay/status-badge";
-import { useToast } from "@/components/ui/toast";
+import { NewTransferDialog } from "@/components/pay/new-transfer-dialog";
 
 export default function TransfersPage() {
   const { t } = useI18n();
-  const { toast } = useToast();
   const rows = ledger.filter((x) => x.type === "payout");
 
   return (
@@ -19,10 +18,12 @@ export default function TransfersPage() {
         title={t("tf.title")}
         subtitle={t("tf.subtitle")}
         actions={
-          <Button size="sm" onClick={() => toast(t("tf.new"))}>
-            <Send />
-            {t("tf.new")}
-          </Button>
+          <NewTransferDialog>
+            <Button size="sm">
+              <Send />
+              {t("tf.new")}
+            </Button>
+          </NewTransferDialog>
         }
       />
       <Card>

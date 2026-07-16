@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export function Topbar({ onMenu }: { onMenu?: () => void }) {
+export function Topbar({ onMenu, onSearch }: { onMenu?: () => void; onSearch?: () => void }) {
   const { t, lang } = useI18n();
   const navigate = useNavigate();
 
@@ -24,13 +24,15 @@ export function Topbar({ onMenu }: { onMenu?: () => void }) {
         <Menu />
       </Button>
 
-      <div className="relative hidden max-w-sm flex-1 sm:block">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          placeholder={t("console.searchPh")}
-          className="h-9 w-full rounded-full border border-border bg-muted/50 pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
-        />
-      </div>
+      <button
+        type="button"
+        onClick={onSearch}
+        className="relative hidden h-9 max-w-sm flex-1 items-center gap-2 rounded-full border border-border bg-muted/50 pl-9 pr-2 text-sm text-muted-foreground transition hover:bg-muted sm:flex"
+      >
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2" />
+        <span className="flex-1 truncate text-left">{t("console.searchPh")}</span>
+        <kbd className="rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium">⌘K</kbd>
+      </button>
 
       <div className="ml-auto flex items-center gap-2">
         <LangSwitcher />
