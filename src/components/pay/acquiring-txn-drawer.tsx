@@ -1,8 +1,10 @@
-import { Check } from "lucide-react";
+import { Check, PlusCircle, StopCircle } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/format";
 import { useMock } from "@/mock/store";
+import { useToast } from "@/components/ui/toast";
+import { CaptureDialog } from "./capture-dialog";
 import {
   Sheet,
   SheetBody,
@@ -36,9 +38,14 @@ export function AcquiringTxnDrawer({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useI18n();
-  const { acqTxns, captureTxn, voidTxn, refundTxn } = useMock();
+  const { toast } = useToast();
+  const { acqTxns, captureTxn, incrementAuth, endAuth, voidTxn, refundTxn } = useMock();
   const x = order ? acqTxns.find((a) => a.order === order) ?? null : null;
   const branch = x ? BRANCH.includes(x.status) : false;
+  const inAuth = x ? x.status === "authorized" || x.status === "partially_captured" : false;
+  const authAmt = x ? x.authAmount ?? x.gross : 0;
+  const capturedAmt = x ? x.capturedAmount ?? 0 : 0;
+  const remaining = Math.round((authAmt - capturedAmt) * 100) / 100;
 
   return (
     <Sheet open={!!order} onOpenChange={onOpenChange}>
@@ -70,6 +77,26 @@ export function AcquiringTxnDrawer({
                 </div>
               </div>
 
+              {inAuth && (
+                <div className="space-y-2 rounded-xl border border-border p-3 text-sm">
+                  <Row label={t("acq.authAmount")} value={formatMoney(authAmt, x.currency)} />
+                  <Row label={t("acq.capturedAmount")} value={formatMoney(capturedAmt, x.currency)} />
+                  <div className="h-px bg-border" />
+                  <Row label={t("acq.remainingAuth")} value={formatMoney(remaining, x.currency)} strong />
+                  {(x.captures?.length ?? 0) > 0 && (
+                    <div className="pt-1">
+                      <div className="mb-1 text-xs text-muted-foreground">{t("acq.capturesTitle")}</div>
+                      {x.captures!.map((cpt) => (
+                        <div key={cpt.id} className="flex items-center justify-between text-xs">
+                          <span className="tabular-nums text-muted-foreground">{cpt.id}</span>
+                          <span className="tabular-nums">{formatMoney(cpt.amount, x.currency)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {!branch && <Timeline stage={x.stage} status={x.status} />}
 
               {x.batchId && (
@@ -80,11 +107,31 @@ export function AcquiringTxnDrawer({
               )}
             </SheetBody>
 
-            <SheetFooter className="gap-2">
-              {x.status === "authorized" && (
+            <SheetFooter className="flex-col gap-2">
+              {inAuth && (
                 <>
-                  <Button variant="outline" className="flex-1" onClick={() => { voidTxn(x.order); onOpenChange(false); }}>{t("acq.voidTxn")}</Button>
-                  <Button className="flex-1" onClick={() => captureTxn(x.order)}>{t("acq.capture")}</Button>
+                  <div className="flex gap-2">
+                    <CaptureDialog remaining={remaining} currency={x.currency} onConfirm={(amount) => captureTxn({ order: x.order, amount })}>
+                      <Button className="flex-1">{t("acq.capture")}</Button>
+                    </CaptureDialog>
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => { incrementAuth({ order: x.order, delta: Math.round(authAmt * 0.1 * 100) / 100 }); toast(t("acq.incrementDone")); }}
+                    >
+                      <PlusCircle />
+                      {t("acq.incrementAuth")}
+                    </Button>
+                  </div>
+                  <div className="flex gap-2">
+                    {x.status === "authorized" && (
+                      <Button variant="outline" className="flex-1" onClick={() => { voidTxn(x.order); onOpenChange(false); }}>{t("acq.voidTxn")}</Button>
+                    )}
+                    <Button variant="outline" className="flex-1" onClick={() => { endAuth(x.order); onOpenChange(false); toast(t("acq.endAuthDone")); }}>
+                      <StopCircle />
+                      {t("acq.endAuth")}
+                    </Button>
+                  </div>
                 </>
               )}
               {CAPTURED_PLUS.includes(x.status) && (

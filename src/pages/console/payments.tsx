@@ -96,7 +96,7 @@ export default function PaymentsPage() {
                         <td className="px-6 py-3 text-right">
                           {x.status === "authorized" && (
                             <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                              <Button size="sm" variant="outline" onClick={() => { captureTxn(x.order); toast(t("acq.captured")); }}>{t("acq.capture")}</Button>
+                              <Button size="sm" variant="outline" onClick={() => { captureTxn({ order: x.order }); toast(t("acq.captured")); }}>{t("acq.capture")}</Button>
                               <Button size="sm" variant="ghost" onClick={() => { voidTxn(x.order); toast(t("acq.voided")); }}>{t("acq.voidTxn")}</Button>
                             </div>
                           )}

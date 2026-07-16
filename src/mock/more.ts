@@ -158,8 +158,9 @@ export const statements: Statement[] = [
 
 // ── 收单闭环（acquiring）：交易生命周期 + 结算批次 + 打款 + 储备金 ──
 export type AcqStatus =
-  | "authorized" | "captured" | "in_batch" | "settling" | "paid_out" | "credited"
+  | "authorized" | "partially_captured" | "captured" | "in_batch" | "settling" | "paid_out" | "credited"
   | "voided" | "refunded" | "disputed" | "failed";
+export type CaptureRecord = { id: string; amount: number };
 export type AcqTxn = {
   order: string;
   merchant: string;
@@ -174,6 +175,10 @@ export type AcqTxn = {
   status: AcqStatus;
   time: string;
   batchId?: string;
+  // 预授权 / 部分请款
+  authAmount?: number;
+  capturedAmount?: number;
+  captures?: CaptureRecord[];
 };
 export const acqTxnsSeed: AcqTxn[] = [
   { order: "OD-88231", merchant: "Contoso（示例）", method: "Visa •••• 4242", gross: 12000, fee: 348, reserve: 0, net: 11652, currency: "USD", captureMode: "manual", stage: 0, status: "authorized", time: "09:24" },

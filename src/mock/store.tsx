@@ -116,7 +116,9 @@ type MockValue = {
   pendingPoolUsd: number;
   reservedUsd: number;
   instantAvailableUsd: number;
-  captureTxn: (order: string) => void;
+  captureTxn: (p: { order: string; amount?: number }) => void;
+  incrementAuth: (p: { order: string; delta: number }) => void;
+  endAuth: (order: string) => void;
   voidTxn: (order: string) => void;
   refundTxn: (p: { order: string; amount: number }) => void;
   advanceBatch: (batchId: string) => void;
@@ -301,8 +303,36 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const terminateCard: MockValue["terminateCard"] = (cardId) => setCards((prev) => prev.filter((c) => c.id !== cardId));
 
   // ── 收单闭环 ──
-  const captureTxn: MockValue["captureTxn"] = (order) =>
-    setAcqTxns((prev) => prev.map((t) => (t.order === order && t.status === "authorized" ? { ...t, status: "captured", stage: 1 } : t)));
+  // 预授权 → 部分/多次请款：capturedAmount 累加，未满额为 partially_captured，满额转 captured
+  const captureTxn: MockValue["captureTxn"] = ({ order, amount }) =>
+    setAcqTxns((prev) =>
+      prev.map((t) => {
+        if (t.order !== order || (t.status !== "authorized" && t.status !== "partially_captured")) return t;
+        const authAmt = t.authAmount ?? t.gross;
+        const already = t.capturedAmount ?? 0;
+        const cap = Math.min(amount ?? authAmt - already, authAmt - already);
+        if (cap <= 0) return t;
+        const newCaptured = Math.round((already + cap) * 100) / 100;
+        const remaining = Math.round((authAmt - newCaptured) * 100) / 100;
+        const captures = [...(t.captures ?? []), { id: `CAP-${order.replace(/^OD-?/, "")}-${(t.captures?.length ?? 0) + 1}`, amount: cap }];
+        return { ...t, authAmount: authAmt, capturedAmount: newCaptured, captures, status: remaining <= 0.001 ? "captured" : "partially_captured", stage: 1 };
+      }),
+    );
+  // 增额授权（预授权最终金额前上调）
+  const incrementAuth: MockValue["incrementAuth"] = ({ order, delta }) =>
+    setAcqTxns((prev) =>
+      prev.map((t) => (t.order === order && (t.status === "authorized" || t.status === "partially_captured") ? { ...t, authAmount: Math.round(((t.authAmount ?? t.gross) + delta) * 100) / 100 } : t)),
+    );
+  // 结束授权：已部分请款则剩余释放并入结算，未请款则整单撤销
+  const endAuth: MockValue["endAuth"] = (order) =>
+    setAcqTxns((prev) =>
+      prev.map((t) => {
+        if (t.order !== order) return t;
+        if (t.status === "partially_captured") return { ...t, status: "captured" };
+        if (t.status === "authorized") return { ...t, status: "voided" };
+        return t;
+      }),
+    );
   const voidTxn: MockValue["voidTxn"] = (order) =>
     setAcqTxns((prev) => prev.map((t) => (t.order === order && t.status === "authorized" ? { ...t, status: "voided" } : t)));
   // 退款：已入账 → 从 USD 扣回；未打款且在批次内 → 冲减该批次毛额/净额（及在途打款额）
@@ -543,6 +573,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
         reservedUsd,
         instantAvailableUsd,
         captureTxn,
+        incrementAuth,
+        endAuth,
         voidTxn,
         refundTxn,
         advanceBatch,
