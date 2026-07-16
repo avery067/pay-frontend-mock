@@ -294,6 +294,8 @@ export const en: Dict = {
     convert: "Convert",
     withdraw: "Withdraw",
     topup: "Top up",
+    withdrawAmount: "Withdraw amount",
+    withdrawDone: "Withdrawal initiated (sample)",
   },
   txn: {
     title: "Transactions",
@@ -435,6 +437,14 @@ export const en: Dict = {
     security: "Security",
     twoFa: "Two-factor auth",
     twoFaDesc: "Add an extra verification at login to secure your account.",
+    demo: "Demo data",
+    reset: "Reset demo data",
+    resetDesc: "Restore balances, settlement, cards, acquiring and disputes to their initial sample state.",
+    resetDone: "Demo data reset (sample)",
+  },
+  nf: {
+    title: "Page not found",
+    desc: "The page you're looking for may have moved or no longer exists.",
   },
   stl: {
     title: "FX Settlement",

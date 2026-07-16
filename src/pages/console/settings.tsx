@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { useI18n } from "@/i18n";
+import { useMock } from "@/mock/store";
 import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ThemeSwitcher } from "@/components/theme/theme-switcher";
@@ -10,6 +13,8 @@ import { LangSwitcher } from "@/components/common/lang-switcher";
 
 export default function SettingsPage() {
   const { t } = useI18n();
+  const { reset } = useMock();
+  const { toast } = useToast();
   const [twoFa, setTwoFa] = useState(true);
 
   return (
@@ -55,6 +60,21 @@ export default function SettingsPage() {
               <div className="mt-0.5 text-sm text-muted-foreground">{t("settings.twoFaDesc")}</div>
             </div>
             <Switch checked={twoFa} onCheckedChange={setTwoFa} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("settings.demo")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-6">
+            <div>
+              <div className="text-sm font-medium">{t("settings.reset")}</div>
+              <div className="mt-0.5 text-sm text-muted-foreground">{t("settings.resetDesc")}</div>
+            </div>
+            <Button variant="outline" onClick={() => { reset(); toast(t("settings.resetDone")); }}>{t("settings.reset")}</Button>
           </div>
         </CardContent>
       </Card>

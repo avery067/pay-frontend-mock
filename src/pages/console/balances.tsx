@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/console/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { NewSettlementDialog } from "@/components/pay/new-settlement-dialog";
+import { WithdrawDialog } from "@/components/pay/withdraw-dialog";
 import { useToast } from "@/components/ui/toast";
 
 export default function BalancesPage() {
@@ -45,10 +46,12 @@ export default function BalancesPage() {
                 {t("bal.convert")}
               </Button>
             </NewSettlementDialog>
-            <Button variant="outline" onClick={() => toast(t("bal.withdraw"))}>
-              <ArrowDownToLine />
-              {t("bal.withdraw")}
-            </Button>
+            <WithdrawDialog currency="USD">
+              <Button variant="outline">
+                <ArrowDownToLine />
+                {t("bal.withdraw")}
+              </Button>
+            </WithdrawDialog>
           </div>
         </CardContent>
       </Card>
@@ -91,10 +94,12 @@ export default function BalancesPage() {
                     {t("bal.convert")}
                   </Button>
                 </NewSettlementDialog>
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => toast(t("bal.withdraw"))}>
-                  <ArrowDownToLine />
-                  {t("bal.withdraw")}
-                </Button>
+                <WithdrawDialog currency={b.currency}>
+                  <Button size="sm" variant="outline" className="flex-1">
+                    <ArrowDownToLine />
+                    {t("bal.withdraw")}
+                  </Button>
+                </WithdrawDialog>
               </div>
             </CardContent>
           </Card>

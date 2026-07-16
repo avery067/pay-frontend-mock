@@ -288,6 +288,8 @@ export const zh = {
     convert: "兑换",
     withdraw: "提现",
     topup: "充值",
+    withdrawAmount: "提现金额",
+    withdrawDone: "提现已发起（示例）",
   },
   txn: {
     title: "交易",
@@ -429,6 +431,14 @@ export const zh = {
     security: "安全",
     twoFa: "两步验证",
     twoFaDesc: "登录时额外验证一次，提升账户安全。",
+    demo: "演示数据",
+    reset: "重置演示数据",
+    resetDesc: "把余额、结汇、发卡、收单、争议等所有示例状态恢复到初始。",
+    resetDone: "已重置演示数据（示例）",
+  },
+  nf: {
+    title: "页面不存在",
+    desc: "你访问的页面可能已移动或不存在。",
   },
   stl: {
     title: "结汇",

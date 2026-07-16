@@ -88,6 +88,8 @@ type MockValue = {
   disputes: Dispute[];
   submitDisputeEvidence: (id: string) => void;
   acceptDispute: (id: string) => void;
+  withdraw: (p: { currency: string; amount: number }) => void;
+  reset: () => void;
 };
 
 const MockCtx = createContext<MockValue | null>(null);
@@ -252,6 +254,27 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setBalances((bs) => creditUsd(bs, -d.amount));
   };
 
+  const withdraw: MockValue["withdraw"] = ({ currency, amount }) => {
+    const usdPer = getRate(currency, "USD");
+    setBalances((bs) =>
+      bs.map((b) => (b.currency === currency ? { ...b, available: Math.max(0, b.available - amount), usdEq: Math.max(0, b.usdEq - amount * usdPer) } : b)),
+    );
+  };
+
+  // 一键重置所有示例状态到初始（原型 mock）
+  const reset = () => {
+    setBalances(initialBalances);
+    setFunds(initialFunds);
+    setRecords(seedRecords);
+    setCards(initialCards);
+    setCardTxns({});
+    setAcqTxns(acqTxnsSeed);
+    setBatches(batchesSeed);
+    setPayoutRecords(payoutRecordsSeed);
+    setReserves(reservesSeed);
+    setDisputes(disputesSeed);
+  };
+
   // 自动推进：结汇处理中的记录 + 已开始结算的批次
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -317,6 +340,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
         disputes,
         submitDisputeEvidence,
         acceptDispute,
+        withdraw,
+        reset,
       }}
     >
       {children}

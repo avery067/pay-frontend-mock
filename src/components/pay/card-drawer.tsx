@@ -97,6 +97,7 @@ export function CardDrawer({
                 <Button
                   variant="outline"
                   className="w-full"
+                  disabled={card.spent + 128.4 > card.limit}
                   onClick={() => {
                     spendOnCard({ cardId: card.id, currency: card.currency, merchant: "AWS（示例）", amount: 128.4 });
                     toast(t("iss.charged"));

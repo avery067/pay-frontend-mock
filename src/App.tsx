@@ -3,6 +3,7 @@ import LandingPage from "@/pages/landing";
 import LoginPage from "@/pages/login";
 import OnboardingPage from "@/pages/onboarding";
 import CheckoutPage from "@/pages/checkout";
+import NotFoundPage from "@/pages/not-found";
 import { ConsoleLayout } from "@/components/layout/console-layout";
 import OverviewPage from "@/pages/console/overview";
 import SettlementPage from "@/pages/console/settlement";
@@ -53,7 +54,7 @@ export function App() {
         <Route path="issuing" element={<Navigate to="/app/cards" replace />} />
         <Route path="acquiring" element={<Navigate to="/app/payments" replace />} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }
