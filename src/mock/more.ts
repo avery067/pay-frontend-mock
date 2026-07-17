@@ -459,6 +459,39 @@ export const reservesSeed: ReserveHold[] = [
   { id: "RSV-0005", batchId: "PO-20260620", amount: 820, currency: "USD", heldOn: "06-20", releaseOn: "07-20", released: false },
 ];
 
+// ── 结算与打款设置：账期方案 + 多银行账户按币种路由 + 自动扫款 ──
+/** 打款账户：收单结算净额按币种路由到的银行账户 */
+export type PayoutAccount = {
+  id: string;
+  label: string;
+  currency: string;
+  country: string;
+  last4: string;
+  isDefault: boolean;
+  status: "pending_verify" | "active" | "disabled";
+};
+export const payoutAccountsSeed: PayoutAccount[] = [
+  { id: "PA-01", label: "Meridian Business Checking（示例）", currency: "USD", country: "US", last4: "4821", isDefault: true, status: "active" },
+  { id: "PA-02", label: "Meridian Europe SA（示例）", currency: "EUR", country: "DE", last4: "7790", isDefault: false, status: "active" },
+  { id: "PA-03", label: "Meridian Bank (HK) Ltd.（示例）", currency: "HKD", country: "HK", last4: "0033", isDefault: false, status: "pending_verify" },
+  { id: "PA-04", label: "Meridian Bank UK Ltd.（示例）", currency: "GBP", country: "GB", last4: "2265", isDefault: false, status: "disabled" },
+];
+
+/** 账期方案：即时 T+0（加急费）/ 标准 T+N / 周结 / 月结；自动扫款把可用余额清零打到目标账户 */
+export type SettlementSchedule = "instant" | "tplus" | "weekly" | "monthly";
+export type SettlementConfig = {
+  schedule: SettlementSchedule;
+  termDays: number;
+  expeditedFee: number;
+  sweep: { on: boolean; threshold: number; targetAccountId: string };
+};
+export const settlementConfigSeed: SettlementConfig = {
+  schedule: "tplus",
+  termDays: 2,
+  expeditedFee: 1.5,
+  sweep: { on: false, threshold: 5000, targetAccountId: "PA-01" },
+};
+
 // ── 对账中心：账期对账单 → 打款批次（Payout ID）→ 逐笔交易 三级下钻 ──
 /** 打款批次明细（对账口径，独立于收单在途 batches，覆盖历史已完结批次） */
 export type ReconPayout = {
