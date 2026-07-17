@@ -12,6 +12,8 @@ import {
   settleFunds as initialFunds,
   settleRecords as seedRecordsRaw,
   settleQuota as settleQuotaSeed,
+  settleBatchesSeed,
+  type SettleBatch,
   acqTxnsSeed,
   batchesSeed,
   payoutRecordsSeed,
@@ -131,6 +133,11 @@ type MockValue = {
   retrySettlement: (ref: string) => void;
   submitRfi: (ref: string) => void;
   settleQuota: { usedRmb: number; totalRmb: number };
+  // 批量结汇 + 多级审批
+  settleBatches: SettleBatch[];
+  createSettleBatch: (fundIds: string[]) => string;
+  approveSettleBatch: (id: string) => void;
+  rejectSettleBatch: (id: string) => void;
   // 实时行情 + 限价结汇委托
   spotRates: Record<string, number>;
   fxOrders: FxOrder[];
@@ -250,6 +257,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [funds, setFunds] = useState<SettleFund[]>(initialFunds);
   const [records, setRecords] = useState<SettleRec[]>(seedRecords);
   const [settleQuota, setSettleQuota] = useState<{ usedRmb: number; totalRmb: number }>({ ...settleQuotaSeed });
+  const [settleBatches, setSettleBatches] = useState<SettleBatch[]>(settleBatchesSeed);
   const [cards, setCards] = useState<Card[]>(initialCards);
   const [cardTxns, setCardTxns] = useState<Record<string, CardTxn[]>>({});
   const [acqTxns, setAcqTxns] = useState<AcqTxn[]>(acqTxnsSeed);
@@ -269,6 +277,11 @@ export function MockProvider({ children }: { children: ReactNode }) {
 
   const recordsRef = useRef(records);
   recordsRef.current = records;
+  const fundsRef = useRef(funds);
+  fundsRef.current = funds;
+  const settleBatchesRef = useRef(settleBatches);
+  settleBatchesRef.current = settleBatches;
+  const batchSeqRef = useRef(3301);
   const cardsRef = useRef(cards);
   cardsRef.current = cards;
   const cardTxnsRef = useRef(cardTxns);
@@ -329,6 +342,42 @@ export function MockProvider({ children }: { children: ReactNode }) {
   // 合规问询补件：need_info → 续跑结汇闭环
   const submitRfi: MockValue["submitRfi"] = (ref) =>
     setRecords((prev) => prev.map((x) => (x.ref === ref && x.status === "need_info" ? { ...x, status: "processing" } : x)));
+
+  // 批量结汇：选中资金合计超阈值(≈$50k)则走多级审批，否则直接批量结汇
+  const BATCH_THRESHOLD = 50000;
+  const execBatchFunds = (fundIds: string[]) => {
+    fundIds.forEach((fid) => {
+      const f = fundsRef.current.find((x) => x.id === fid);
+      if (f) initiateSettlement({ fundId: f.id, from: f.currency, amount: f.amount });
+    });
+  };
+  const createSettleBatch: MockValue["createSettleBatch"] = (fundIds) => {
+    const picked = fundsRef.current.filter((f) => fundIds.includes(f.id));
+    const totalUsd = Math.round(picked.reduce((s, f) => s + f.usdEq, 0) * 100) / 100;
+    if (totalUsd < BATCH_THRESHOLD) {
+      execBatchFunds(fundIds);
+      return "";
+    }
+    const id = `BSTL-${++batchSeqRef.current}`;
+    const batch: SettleBatch = { id, fundIds, count: picked.length, totalUsd, status: "pending_approval", approvals: [{ role: "财务复核", done: false }, { role: "合规审批", done: false }], created: "刚刚" };
+    setSettleBatches((prev) => [batch, ...prev]);
+    return id;
+  };
+  const approveSettleBatch: MockValue["approveSettleBatch"] = (id) => {
+    const b = settleBatchesRef.current.find((x) => x.id === id);
+    if (!b || b.status !== "pending_approval") return;
+    const nextApprovals = b.approvals.map((a, i) => (i === b.approvals.findIndex((s) => !s.done) ? { ...a, done: true } : a));
+    const allDone = nextApprovals.every((a) => a.done);
+    if (allDone) {
+      execBatchFunds(b.fundIds);
+      setSettleBatches((prev) => prev.map((x) => (x.id === id ? { ...x, approvals: nextApprovals, status: "done" } : x)));
+      pushNotif("success", `批量结汇 ${id} 审批通过，已发起 ${b.count} 笔`, `Batch ${id} approved`);
+    } else {
+      setSettleBatches((prev) => prev.map((x) => (x.id === id ? { ...x, approvals: nextApprovals } : x)));
+    }
+  };
+  const rejectSettleBatch: MockValue["rejectSettleBatch"] = (id) =>
+    setSettleBatches((prev) => prev.map((x) => (x.id === id && x.status === "pending_approval" ? { ...x, status: "rejected" } : x)));
   const advance: MockValue["advance"] = (ref) => {
     const r = recordsRef.current.find((x) => x.ref === ref);
     if (!r || r.status !== "processing") return;
@@ -678,6 +727,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setFunds(initialFunds);
     setRecords(seedRecords);
     setSettleQuota({ ...settleQuotaSeed });
+    setSettleBatches(settleBatchesSeed);
     setCards(initialCards);
     setCardTxns({});
     setAcqTxns(acqTxnsSeed);
@@ -790,6 +840,10 @@ export function MockProvider({ children }: { children: ReactNode }) {
         retrySettlement,
         submitRfi,
         settleQuota,
+        settleBatches,
+        createSettleBatch,
+        approveSettleBatch,
+        rejectSettleBatch,
         spotRates,
         fxOrders,
         placeFxOrder,

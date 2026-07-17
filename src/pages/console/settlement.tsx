@@ -19,6 +19,7 @@ import { SettleRecordDrawer } from "@/components/pay/settle-record-drawer";
 import { FxTicker } from "@/components/pay/fx-ticker";
 import { FxOrderDialog } from "@/components/pay/fx-order-dialog";
 import { FxForwardDialog } from "@/components/pay/fx-forward-dialog";
+import { ApprovalDrawer } from "@/components/pay/approval-drawer";
 import { spotRate } from "@/mock/store";
 
 const STEP_KEYS = [
@@ -32,9 +33,14 @@ const STEP_KEYS = [
 export default function SettlementPage() {
   const { t } = useI18n();
   const { toast } = useToast();
-  const { funds, records, pendingUsd, retrySettlement, fxOrders, cancelFxOrder, spotRates, fxForwards, drawForward, terminateForward, settleQuota } = useMock();
+  const { funds, records, pendingUsd, retrySettlement, fxOrders, cancelFxOrder, spotRates, fxForwards, drawForward, terminateForward, settleQuota, settleBatches, createSettleBatch, approveSettleBatch, rejectSettleBatch } = useMock();
   const [openRef, setOpenRef] = useState<string | null>(null);
   const [reconView, setReconView] = useState<"orig" | "settle">("orig");
+  const [selFunds, setSelFunds] = useState<string[]>([]);
+  const [openBatch, setOpenBatch] = useState<string | null>(null);
+  const selTotal = funds.filter((f) => selFunds.includes(f.id)).reduce((s, f) => s + f.usdEq, 0);
+  const pendingBatches = settleBatches.filter((b) => b.status === "pending_approval");
+  const batch = openBatch ? settleBatches.find((b) => b.id === openBatch) ?? null : null;
   const quotaPct = Math.round((settleQuota.usedRmb / settleQuota.totalRmb) * 100);
   const quotaTone = quotaPct >= 100 ? "bg-danger" : quotaPct >= 90 ? "bg-warning" : "bg-brand";
   const loading = usePageLoading();
@@ -116,14 +122,49 @@ export default function SettlementPage() {
           <TabsTrigger value="recon">{t("stl.tabRecon")}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="pending">
+        <TabsContent value="pending" className="space-y-4">
+          {pendingBatches.length > 0 && (
+            <Card>
+              <div className="border-b border-border px-6 py-2.5 text-xs font-medium text-muted-foreground">{t("stl.batchPending")}</div>
+              <CardContent className="divide-y divide-border p-0">
+                {pendingBatches.map((b) => (
+                  <button key={b.id} type="button" onClick={() => setOpenBatch(b.id)} className="flex w-full items-center justify-between px-6 py-3 text-left text-sm transition hover:bg-muted/50">
+                    <span>
+                      <span className="font-medium tabular-nums">{b.id}</span>
+                      <span className="ml-2 text-muted-foreground">{b.count} {t("stl.batchCount")} · {formatMoney(b.totalUsd)}</span>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      {b.approvals.map((a) => (
+                        <span key={a.role} className={cn("size-2 rounded-full", a.done ? "bg-success" : "bg-border")} title={a.role} />
+                      ))}
+                      <Badge variant="warning">{t("approval.pending")}</Badge>
+                    </span>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {selFunds.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand/40 bg-brand/5 px-5 py-3">
+              <span className="text-sm">
+                {t("stl.batchSettle")}：<span className="font-semibold tabular-nums">{selFunds.length} {t("stl.batchCount")}</span>
+                <span className="text-muted-foreground"> · {t("stl.batchTotalUsd")} ≈ {formatMoney(selTotal)}</span>
+              </span>
+              <Button size="sm" onClick={() => { const id = createSettleBatch(selFunds); setSelFunds([]); if (id) setOpenBatch(id); else toast(t("stl.done")); }}>
+                {t("stl.batchSettle")}
+              </Button>
+            </div>
+          )}
+
           <Card>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border text-xs text-muted-foreground">
-                      <th className="px-6 py-2.5 text-left font-medium">{t("stl.colSource")}</th>
+                      <th className="w-10 px-6 py-2.5"></th>
+                      <th className="px-3 py-2.5 text-left font-medium">{t("stl.colSource")}</th>
                       <th className="px-3 py-2.5 text-right font-medium">{t("console.colAmount")}</th>
                       <th className="px-3 py-2.5 text-left font-medium">{t("stl.colTrade")}</th>
                       <th className="px-3 py-2.5 text-left font-medium">{t("stl.colArrived")}</th>
@@ -134,6 +175,15 @@ export default function SettlementPage() {
                     {funds.map((f) => (
                       <tr key={f.id} className="border-b border-border/60 last:border-0">
                         <td className="px-6 py-3">
+                          <input
+                            type="checkbox"
+                            className="size-4 accent-[var(--brand-strong)] disabled:opacity-40"
+                            disabled={!f.tradeVerified}
+                            checked={selFunds.includes(f.id)}
+                            onChange={(e) => setSelFunds((prev) => (e.target.checked ? [...prev, f.id] : prev.filter((x) => x !== f.id)))}
+                          />
+                        </td>
+                        <td className="px-3 py-3">
                           <div className="font-medium">{f.source}</div>
                           <div className="tabular-nums text-xs text-muted-foreground">{f.id}</div>
                         </td>
@@ -157,7 +207,7 @@ export default function SettlementPage() {
                     ))}
                     {funds.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-6 py-10 text-center text-sm text-muted-foreground">—</td>
+                        <td colSpan={6} className="px-6 py-10 text-center text-sm text-muted-foreground">—</td>
                       </tr>
                     )}
                   </tbody>
@@ -461,6 +511,25 @@ export default function SettlementPage() {
       </Tabs>
 
       <SettleRecordDrawer openRef={openRef} onOpenChange={(o) => { if (!o) setOpenRef(null); }} />
+
+      {batch && (
+        <ApprovalDrawer
+          open={!!openBatch}
+          onOpenChange={(o) => { if (!o) setOpenBatch(null); }}
+          title={t("stl.batchSettle")}
+          refId={batch.id}
+          statusVariant={batch.status === "done" ? "success" : batch.status === "rejected" ? "danger" : "warning"}
+          statusLabel={batch.status === "done" ? t("approval.stDone") : batch.status === "rejected" ? t("approval.stRejected") : t("approval.pending")}
+          lines={[
+            { label: t("stl.batchCount"), value: `${batch.count}` },
+            { label: t("stl.batchTotalUsd"), value: formatMoney(batch.totalUsd) },
+          ]}
+          approvals={batch.approvals}
+          canAct={batch.status === "pending_approval"}
+          onApprove={() => { approveSettleBatch(batch.id); toast(t("approval.approved")); }}
+          onReject={() => { rejectSettleBatch(batch.id); setOpenBatch(null); toast(t("approval.rejected")); }}
+        />
+      )}
     </div>
   );
 }

@@ -91,6 +91,22 @@ export const settleFunds: SettleFund[] = [
   { id: "SF-77003", source: "Initech Ltd.（示例）", currency: "GBP", amount: 12800, usdEq: 16270, arrived: "07-15", tradeVerified: false },
   { id: "SF-76991", source: "Contoso KK（示例）", currency: "JPY", amount: 3600000, usdEq: 22960, arrived: "07-14", tradeVerified: true },
 ];
+
+/** 通用多级审批步骤 */
+export type ApprovalStep = { role: string; done: boolean };
+/** 批量结汇批次（超阈值需多级审批） */
+export type SettleBatch = {
+  id: string;
+  fundIds: string[];
+  count: number;
+  totalUsd: number;
+  status: "pending_approval" | "approved" | "rejected" | "done";
+  approvals: ApprovalStep[];
+  created: string;
+};
+export const settleBatchesSeed: SettleBatch[] = [
+  { id: "BSTL-3301", fundIds: [], count: 4, totalUsd: 186400, status: "pending_approval", approvals: [{ role: "财务复核", done: true }, { role: "合规审批", done: false }], created: "07-16" },
+];
 export const settlePendingUsd = settleFunds.reduce((s, f) => s + f.usdEq, 0);
 
 // 结汇记录（示例）
