@@ -47,6 +47,8 @@ import {
   paymentMethodsSeed,
   type PaymentMethod,
   type MethodKind,
+  receivingAccountsSeed,
+  type ReceivingAccount,
 } from "./more";
 import { cards as initialCards, notifications as notificationsSeed, type Card, type CardControls, type CardChannel, type CardAutoTopup } from "./data";
 
@@ -142,6 +144,10 @@ type MockValue = {
   createSettleBatch: (fundIds: string[]) => string;
   approveSettleBatch: (id: string) => void;
   rejectSettleBatch: (id: string) => void;
+  // 多币种虚拟收款账户（本地路由）：模拟入账打通“收→结汇”上游
+  receivingAccounts: ReceivingAccount[];
+  simulateIncoming: (accountId: string, amount: number) => void;
+  addReceivingAccount: (currency: string) => void;
   // 实时行情 + 限价结汇委托
   spotRates: Record<string, number>;
   fxOrders: FxOrder[];
@@ -262,6 +268,53 @@ function releaseReserveBal(bs: Balance[], amt: number): Balance[] {
   );
 }
 
+// 多币种虚拟收款账户：按币种生成对应本地清算路由字段（示例路由号，非真实）
+const RECV_BANK_NAME: Record<string, string> = {
+  USD: "Meridian Bank N.A.（示例）",
+  GBP: "Meridian Bank UK Ltd.（示例）",
+  EUR: "Meridian Europe SA（示例）",
+  HKD: "Meridian Bank (HK) Ltd.（示例）",
+  SGD: "Meridian Bank Asia Pte Ltd.（示例）",
+};
+function bankNameFor(currency: string): string {
+  return RECV_BANK_NAME[currency] ?? `Meridian Bank ${currency}（示例）`;
+}
+function localFieldsFor(currency: string, seq: number): { label: string; value: string }[] {
+  const pad = (n: number, len: number) => String(n).padStart(len, "0");
+  switch (currency) {
+    case "USD":
+      return [
+        { label: "ACH Routing Number", value: "026073150" },
+        { label: "Account Number", value: `88${pad(1000000 + seq, 7)}` },
+      ];
+    case "GBP":
+      return [
+        { label: "Sort Code", value: "04-00-75" },
+        { label: "Account Number", value: pad(31900000 + seq, 8) },
+      ];
+    case "EUR":
+      return [
+        { label: "IBAN", value: `BE71 9670 ${pad(1000 + seq, 4)} ${pad(2000 + seq, 4)}` },
+        { label: "BIC / SWIFT", value: "MRDNBEBB" },
+      ];
+    case "HKD":
+      return [
+        { label: "Bank Code", value: "015" },
+        { label: "Account Number", value: `816-${pad(540000 + seq, 6)}-00${seq % 10}` },
+      ];
+    case "SGD":
+      return [
+        { label: "SWIFT Code", value: "MRDNSGSG" },
+        { label: "Account Number", value: `701-${pad(39000 + seq, 6)}-${seq % 10}` },
+      ];
+    default:
+      return [
+        { label: "SWIFT / BIC", value: "MRDNINTL" },
+        { label: "Account Number", value: pad(9000000 + seq, 8) },
+      ];
+  }
+}
+
 export function MockProvider({ children }: { children: ReactNode }) {
   const [balances, setBalances] = useState<Balance[]>(initialBalances);
   const [funds, setFunds] = useState<SettleFund[]>(initialFunds);
@@ -286,6 +339,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [fxForwards, setFxForwards] = useState<FxForward[]>(fxForwardsSeed);
   const [riskRules, setRiskRules] = useState<RiskRule[]>(riskRulesSeed);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(paymentMethodsSeed);
+  const [receivingAccounts, setReceivingAccounts] = useState<ReceivingAccount[]>(receivingAccountsSeed);
 
   const recordsRef = useRef(records);
   recordsRef.current = records;
@@ -294,6 +348,10 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const settleBatchesRef = useRef(settleBatches);
   settleBatchesRef.current = settleBatches;
   const batchSeqRef = useRef(3301);
+  const receivingAccountsRef = useRef(receivingAccounts);
+  receivingAccountsRef.current = receivingAccounts;
+  const raSeqRef = useRef(1005);
+  const recvFundSeqRef = useRef(90000);
   const cardsRef = useRef(cards);
   cardsRef.current = cards;
   const cardTxnsRef = useRef(cardTxns);
@@ -441,6 +499,37 @@ export function MockProvider({ children }: { children: ReactNode }) {
   };
   const terminateForward: MockValue["terminateForward"] = (id) =>
     setFxForwards((prev) => prev.map((x) => (x.id === id && (x.status === "active" || x.status === "partially_drawn") ? { ...x, status: "cancelled" } : x)));
+
+  // ── 多币种虚拟收款账户（本地路由）：模拟入账 → 前插入待结汇资金，打通"收→结汇"上游 ──
+  const simulateIncoming: MockValue["simulateIncoming"] = (accountId, amount) => {
+    const acct = receivingAccountsRef.current.find((a) => a.id === accountId);
+    if (!acct || amount <= 0) return;
+    const id = `SF-${++recvFundSeqRef.current}`;
+    const usdEq = Math.round(amount * getRate(acct.currency, "USD") * 100) / 100;
+    const fund: SettleFund = {
+      id,
+      source: `${acct.currency}收款（示例）`,
+      currency: acct.currency,
+      amount,
+      usdEq,
+      arrived: "刚刚",
+      tradeVerified: false,
+    };
+    setFunds((prev) => [fund, ...prev]);
+    pushNotif("success", `收到一笔 ${acct.currency} 入账`, `Received a new ${acct.currency} deposit`);
+  };
+  const addReceivingAccount: MockValue["addReceivingAccount"] = (currency) => {
+    const seq = ++raSeqRef.current;
+    const acct: ReceivingAccount = {
+      id: `RA-${seq}`,
+      currency,
+      holder: "示例商户 001",
+      bankName: bankNameFor(currency),
+      localFields: localFieldsFor(currency, seq),
+      local: true,
+    };
+    setReceivingAccounts((prev) => [acct, ...prev]);
+  };
 
   // ── 发卡 ──
   const issueCard: MockValue["issueCard"] = (p) => {
@@ -781,6 +870,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setFxForwards(fxForwardsSeed);
     setRiskRules(riskRulesSeed);
     setPaymentMethods(paymentMethodsSeed);
+    setReceivingAccounts(receivingAccountsSeed);
   };
 
   // 自动推进：结汇处理中的记录 + 已开始结算的批次
@@ -942,6 +1032,9 @@ export function MockProvider({ children }: { children: ReactNode }) {
         toggleMethod,
         recipients: recipientList,
         addRecipient,
+        receivingAccounts,
+        simulateIncoming,
+        addReceivingAccount,
         notifications: notifs,
         unreadCount,
         markNotifsRead,

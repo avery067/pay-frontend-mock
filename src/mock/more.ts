@@ -92,6 +92,73 @@ export const settleFunds: SettleFund[] = [
   { id: "SF-76991", source: "Contoso KK（示例）", currency: "JPY", amount: 3600000, usdEq: 22960, arrived: "07-14", tradeVerified: true },
 ];
 
+// 多币种虚拟收款账户（本地清算路由）：收款方可按本地方式直汇，省中间行转汇与扣费；模拟入账打通“收→结汇”上游
+export type ReceivingAccount = {
+  id: string;
+  currency: string;
+  holder: string;
+  bankName: string;
+  localFields: { label: string; value: string }[];
+  local: boolean;
+};
+export const receivingAccountsSeed: ReceivingAccount[] = [
+  {
+    id: "RA-1001",
+    currency: "USD",
+    holder: "示例商户 001",
+    bankName: "Meridian Bank N.A.（示例）",
+    localFields: [
+      { label: "ACH Routing Number", value: "026073150" },
+      { label: "Account Number", value: "8801234567" },
+    ],
+    local: true,
+  },
+  {
+    id: "RA-1002",
+    currency: "GBP",
+    holder: "示例商户 001",
+    bankName: "Meridian Bank UK Ltd.（示例）",
+    localFields: [
+      { label: "Sort Code", value: "04-00-75" },
+      { label: "Account Number", value: "31926819" },
+    ],
+    local: true,
+  },
+  {
+    id: "RA-1003",
+    currency: "EUR",
+    holder: "示例商户 001",
+    bankName: "Meridian Europe SA（示例）",
+    localFields: [
+      { label: "IBAN", value: "BE71 9670 1234 5678" },
+      { label: "BIC / SWIFT", value: "MRDNBEBB" },
+    ],
+    local: true,
+  },
+  {
+    id: "RA-1004",
+    currency: "HKD",
+    holder: "示例商户 001",
+    bankName: "Meridian Bank (HK) Ltd.（示例）",
+    localFields: [
+      { label: "Bank Code", value: "015" },
+      { label: "Account Number", value: "816-542931-001" },
+    ],
+    local: true,
+  },
+  {
+    id: "RA-1005",
+    currency: "SGD",
+    holder: "示例商户 001",
+    bankName: "Meridian Bank Asia Pte Ltd.（示例）",
+    localFields: [
+      { label: "SWIFT Code", value: "MRDNSGSG" },
+      { label: "Account Number", value: "701-039284-6" },
+    ],
+    local: true,
+  },
+];
+
 /** 通用多级审批步骤 */
 export type ApprovalStep = { role: string; done: boolean };
 /** 批量结汇批次（超阈值需多级审批） */

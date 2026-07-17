@@ -7,6 +7,7 @@ import NotFoundPage from "@/pages/not-found";
 import { ConsoleLayout } from "@/components/layout/console-layout";
 import OverviewPage from "@/pages/console/overview";
 import SettlementPage from "@/pages/console/settlement";
+import ReceivingPage from "@/pages/console/receiving";
 import BalancesPage from "@/pages/console/balances";
 import TransactionsPage from "@/pages/console/transactions";
 import ConvertPage from "@/pages/console/convert";
@@ -56,6 +57,7 @@ export function App() {
         <Route path="account" element={<AccountPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="settlement" element={<SettlementPage />} />
+        <Route path="receiving" element={<ReceivingPage />} />
         {/* 旧业务线路径重定向到商户视角页面 */}
         <Route path="issuing" element={<Navigate to="/app/cards" replace />} />
         <Route path="acquiring" element={<Navigate to="/app/payments" replace />} />

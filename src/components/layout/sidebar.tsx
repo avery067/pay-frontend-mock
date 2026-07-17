@@ -19,6 +19,7 @@ import {
   FileText,
   Settings,
   Building2,
+  Inbox,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ const GROUPS: Group[] = [
     items: [
       { to: "/app/balances", icon: Wallet, key: "nav.balances" },
       { to: "/app/transactions", icon: Receipt, key: "nav.transactions" },
+      { to: "/app/receiving", icon: Inbox, key: "nav.receiving" },
       { to: "/app/settlement", icon: Landmark, key: "nav.settlement" },
       { to: "/app/convert", icon: Repeat, key: "nav.convert" },
       { to: "/app/transfers", icon: Send, key: "nav.transfers" },
