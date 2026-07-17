@@ -166,6 +166,8 @@ export const paymentLinks: PayLink[] = [
 ];
 
 // 争议 / 拒付（示例）
+export type DisputeStage = "chargeback" | "representment" | "pre_arb" | "arbitration";
+export type DisputeCategory = "duty" | "not_received" | "not_as_described" | "other";
 export type Dispute = {
   id: string;
   order: string;
@@ -175,11 +177,19 @@ export type Dispute = {
   status: "need" | "review" | "won" | "lost";
   deadline: string;
   date: string;
+  stage?: DisputeStage;
+  evidenceUploaded?: string[];
+};
+/** 卡组织理由码 → 归一化类别 + 所需举证清单（示例） */
+export const REASON_CODES: Record<string, { code: string; network: string; category: DisputeCategory; docs: { zh: string; en: string }[] }> = {
+  fraud: { code: "10.4", network: "Visa", category: "duty", docs: [{ zh: "AVS / CVV 验证结果", en: "AVS / CVV result" }, { zh: "3DS 认证记录", en: "3DS authentication" }, { zh: "历史交易记录", en: "Prior transaction history" }] },
+  product: { code: "13.3", network: "Visa", category: "not_as_described", docs: [{ zh: "商品 / 服务描述", en: "Item / service description" }, { zh: "发货与签收凭证", en: "Proof of delivery" }, { zh: "服务条款", en: "Terms of service" }] },
+  dup: { code: "12.6.1", network: "Mastercard", category: "other", docs: [{ zh: "两笔交易凭证", en: "Both transaction records" }, { zh: "退款证明（如已退）", en: "Refund proof (if any)" }] },
 };
 export const disputes: Dispute[] = [
-  { id: "DP-5521", order: "OD-88231", reason: "fraud", amount: 1200, currency: "USD", status: "need", deadline: "07-20", date: "07-16" },
-  { id: "DP-5510", order: "OD-88190", reason: "product", amount: 640, currency: "USD", status: "review", deadline: "07-18", date: "07-14" },
-  { id: "DP-5498", order: "OD-88102", reason: "dup", amount: 220, currency: "USD", status: "won", deadline: "07-10", date: "07-08" },
+  { id: "DP-5521", order: "OD-88231", reason: "fraud", amount: 1200, currency: "USD", status: "need", deadline: "07-20", date: "07-16", stage: "chargeback", evidenceUploaded: [] },
+  { id: "DP-5510", order: "OD-88190", reason: "product", amount: 640, currency: "USD", status: "lost", deadline: "07-18", date: "07-14", stage: "representment", evidenceUploaded: ["商品 / 服务描述"] },
+  { id: "DP-5498", order: "OD-88102", reason: "dup", amount: 220, currency: "USD", status: "won", deadline: "07-10", date: "07-08", stage: "representment", evidenceUploaded: [] },
 ];
 
 // 月度对账单（示例）

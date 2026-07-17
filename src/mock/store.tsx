@@ -24,6 +24,7 @@ import {
   type ReserveHold,
   disputes as disputesSeed,
   type Dispute,
+  type DisputeStage,
   ledger as ledgerSeed,
   type LedgerTxn,
   paymentLinks as linksSeed,
@@ -177,6 +178,8 @@ type MockValue = {
   disputes: Dispute[];
   submitDisputeEvidence: (id: string) => void;
   acceptDispute: (id: string) => void;
+  escalateDispute: (id: string) => void;
+  uploadEvidence: (id: string, doc: string) => void;
   withdraw: (p: { currency: string; amount: number }) => void;
   // 统一实时台账 + 资金转出闭环
   ledger: LedgerTxn[];
@@ -555,7 +558,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
 
   // ── 争议闭环：举证 → 审核中 → 胜诉；接受 → 败诉(从 USD 余额扣回) ──
   const submitDisputeEvidence: MockValue["submitDisputeEvidence"] = (id) => {
-    setDisputes((prev) => prev.map((d) => (d.id === id && d.status === "need" ? { ...d, status: "review" } : d)));
+    setDisputes((prev) => prev.map((d) => (d.id === id && d.status === "need" ? { ...d, status: "review", stage: d.stage === "chargeback" ? "representment" : d.stage ?? "representment" } : d)));
     window.setTimeout(() => {
       setDisputes((prev) => prev.map((d) => (d.id === id && d.status === "review" ? { ...d, status: "won" } : d)));
       pushNotif("success", `争议 ${id} 已胜诉`, `Dispute ${id} won`);
@@ -568,6 +571,20 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setBalances((bs) => creditUsd(bs, -d.amount));
     pushNotif("warning", `争议 ${id} 已接受拒付`, `Dispute ${id} — chargeback accepted`);
   };
+  // 争议升级：败诉后升级预仲裁 → 仲裁（仲裁为终局）
+  const escalateDispute: MockValue["escalateDispute"] = (id) => {
+    const order: DisputeStage[] = ["chargeback", "representment", "pre_arb", "arbitration"];
+    setDisputes((prev) =>
+      prev.map((d) => {
+        if (d.id !== id || d.status !== "lost") return d;
+        const i = order.indexOf(d.stage ?? "representment");
+        if (i >= order.length - 1) return d;
+        return { ...d, stage: order[i + 1], status: "need" };
+      }),
+    );
+  };
+  const uploadEvidence: MockValue["uploadEvidence"] = (id, doc) =>
+    setDisputes((prev) => prev.map((d) => (d.id === id ? { ...d, evidenceUploaded: (d.evidenceUploaded ?? []).includes(doc) ? d.evidenceUploaded : [...(d.evidenceUploaded ?? []), doc] } : d)));
 
   const withdraw: MockValue["withdraw"] = ({ currency, amount }) => {
     const usdPer = getRate(currency, "USD");
@@ -798,6 +815,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
         disputes,
         submitDisputeEvidence,
         acceptDispute,
+        escalateDispute,
+        uploadEvidence,
         withdraw,
         ledger,
         convert,
