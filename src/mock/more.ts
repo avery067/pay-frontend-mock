@@ -405,6 +405,41 @@ export const riskRulesSeed: RiskRule[] = [
 export type RiskProfile = { disputeRatio: number; threshold: number };
 export const riskProfileSeed: RiskProfile = { disputeRatio: 0.72, threshold: 0.9 };
 
+// ── 事前预警与自动止损（收单 P2 F8）：RDR / Ethoca / 卡组织 Fraud Alert 抢在拒付形成前到达，主动或自动退款均可止损，且不计入拒付率 ──
+export type FraudAlertSource = "rdr" | "ethoca" | "fraud_alert";
+export type FraudAlertReason = "cardholder_fraud" | "unauthorized" | "subscription_cancelled" | "duplicate";
+export type FraudAlertStatus = "open" | "auto_refunded" | "merchant_refunded" | "ignored";
+export type FraudAlert = {
+  id: string;
+  order: string;
+  source: FraudAlertSource;
+  reason: FraudAlertReason;
+  amount: number;
+  currency: string;
+  deadline: string;
+  status: FraudAlertStatus;
+};
+export const alertsSeed: FraudAlert[] = [
+  { id: "AL-6601", order: "OD-88230", source: "ethoca", reason: "cardholder_fraud", amount: 2600, currency: "USD", deadline: "07-18", status: "open" },
+  { id: "AL-6598", order: "OD-88226", source: "rdr", reason: "subscription_cancelled", amount: 1200, currency: "USD", deadline: "07-19", status: "open" },
+  { id: "AL-6592", order: "OD-88220", source: "fraud_alert", reason: "unauthorized", amount: 1500, currency: "USD", deadline: "07-20", status: "open" },
+];
+
+/** 自动止损规则：新预警到达时若命中已启用规则（金额低于阈值 + 来源匹配）则直接自动退款，抢在人工处理前止损 */
+export type AutoRule = {
+  id: string;
+  zh: string;
+  en: string;
+  maxAmount: number;
+  sources: FraudAlertSource[];
+  action: "auto_refund";
+  on: boolean;
+};
+export const autoRulesSeed: AutoRule[] = [
+  { id: "ar1", zh: "欺诈类预警金额 < $500 自动退款止损", en: "Auto-refund fraud alerts under $500", maxAmount: 500, sources: ["rdr", "ethoca", "fraud_alert"], action: "auto_refund", on: true },
+  { id: "ar2", zh: "Ethoca 预警金额 < $3,000 自动退款止损", en: "Auto-refund Ethoca alerts under $3,000", maxAmount: 3000, sources: ["ethoca"], action: "auto_refund", on: false },
+];
+
 // 本地支付方式矩阵（示例）：卡 / 钱包 / APM / BNPL / 现金码
 export type MethodKind = "card" | "wallet" | "apm" | "bnpl" | "cash";
 export type PaymentMethod = {
