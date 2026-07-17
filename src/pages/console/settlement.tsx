@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, Plus, RotateCcw, ShieldCheck } from "lucide-react";
+import { ChevronRight, Download, Plus, RotateCcw } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { formatAmount, formatMoney } from "@/lib/format";
@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/pay/status-badge";
 import { SettleFxDialog } from "@/components/pay/settle-fx-dialog";
 import { SettleRecordDrawer } from "@/components/pay/settle-record-drawer";
+import { DirectoryDrawer, DIRECTORY_META } from "@/components/pay/directory-drawer";
 import { FxTicker } from "@/components/pay/fx-ticker";
 import { FxOrderDialog } from "@/components/pay/fx-order-dialog";
 import { FxForwardDialog } from "@/components/pay/fx-forward-dialog";
@@ -33,8 +34,9 @@ const STEP_KEYS = [
 export default function SettlementPage() {
   const { t } = useI18n();
   const { toast } = useToast();
-  const { funds, records, pendingUsd, retrySettlement, fxOrders, cancelFxOrder, spotRates, fxForwards, drawForward, terminateForward, settleQuota, settleBatches, createSettleBatch, approveSettleBatch, rejectSettleBatch } = useMock();
+  const { funds, records, pendingUsd, retrySettlement, fxOrders, cancelFxOrder, spotRates, fxForwards, drawForward, terminateForward, settleQuota, settleBatches, createSettleBatch, approveSettleBatch, rejectSettleBatch, directoryStatus, collectionLimit } = useMock();
   const [openRef, setOpenRef] = useState<string | null>(null);
+  const [dirOpen, setDirOpen] = useState(false);
   const [reconView, setReconView] = useState<"orig" | "settle">("orig");
   const [selFunds, setSelFunds] = useState<string[]>([]);
   const [openBatch, setOpenBatch] = useState<string | null>(null);
@@ -43,6 +45,8 @@ export default function SettlementPage() {
   const batch = openBatch ? settleBatches.find((b) => b.id === openBatch) ?? null : null;
   const quotaPct = Math.round((settleQuota.usedRmb / settleQuota.totalRmb) * 100);
   const quotaTone = quotaPct >= 100 ? "bg-danger" : quotaPct >= 90 ? "bg-warning" : "bg-brand";
+  const dirMeta = DIRECTORY_META[directoryStatus];
+  const DirIcon = dirMeta.icon;
   const loading = usePageLoading();
 
   // 对账（纯派生）：毛额 = 原币金额 × 成交汇率，点差 = 毛额 − 结算到手
@@ -79,13 +83,19 @@ export default function SettlementPage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
-          <CardContent className="p-5">
-            <div className="text-sm text-muted-foreground">{t("stl.dirStatus")}</div>
-            <div className="mt-2 flex items-center gap-2">
-              <ShieldCheck className="size-5 text-success" />
-              <span className="text-lg font-semibold">{t("stl.dirA")}</span>
+          <button type="button" onClick={() => setDirOpen(true)} className="block w-full rounded-xl p-5 text-left transition hover:bg-muted/40">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm text-muted-foreground">{t("stl.dirStatus")}</span>
+              <ChevronRight className="size-4 text-muted-foreground" />
             </div>
-          </CardContent>
+            <div className="mt-2 flex items-center gap-2">
+              <DirIcon className={cn("size-5", dirMeta.tone)} />
+              <span className="text-lg font-semibold">{t(dirMeta.labelKey)}</span>
+            </div>
+            <div className="mt-1.5 tabular-nums text-xs text-muted-foreground">
+              {t("dir.tierTitle")} · {formatMoney(collectionLimit.capUsd)}
+            </div>
+          </button>
         </Card>
         <Card>
           <CardContent className="p-5">
@@ -511,6 +521,8 @@ export default function SettlementPage() {
       </Tabs>
 
       <SettleRecordDrawer openRef={openRef} onOpenChange={(o) => { if (!o) setOpenRef(null); }} />
+
+      <DirectoryDrawer open={dirOpen} onOpenChange={setDirOpen} />
 
       {batch && (
         <ApprovalDrawer

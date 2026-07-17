@@ -1,7 +1,8 @@
-import { AlertTriangle, Check, Download, RotateCcw, X } from "lucide-react";
+import { AlertTriangle, Check, Download, FileCheck2, RotateCcw, X } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { formatAmount } from "@/lib/format";
+import { exportCsv } from "@/lib/export-csv";
 import { useMock } from "@/mock/store";
 import {
   Sheet,
@@ -63,6 +64,31 @@ export function SettleRecordDrawer({
               </div>
 
               <Timeline stage={rec.stage} status={rec.status} />
+
+              {rec.status === "settled" && rec.declareNo && (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-border p-4 text-sm">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <FileCheck2 className="size-3.5" />
+                      {t("stl.declareNo")}
+                    </div>
+                    <div className="mt-1 tabular-nums font-medium">{rec.declareNo}</div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      exportCsv(`${rec.declareNo}.csv`, [
+                        { declareNo: rec.declareNo, settlementRef: rec.ref, currency: rec.from, amount: rec.amount, rate: rec.rate, rmb: rec.rmb },
+                      ]);
+                      toast(t("stl.declareDownloaded"));
+                    }}
+                  >
+                    <Download className="size-3.5" />
+                    {t("stl.downloadDeclare")}
+                  </Button>
+                </div>
+              )}
 
               {rec.status === "processing" && (
                 <p className="rounded-lg bg-info/10 p-3 text-xs text-info">{t("stl.liveHint")}</p>
