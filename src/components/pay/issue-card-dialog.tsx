@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { CreditCard, Wallet } from "lucide-react";
+import { CreditCard, Wallet, Zap, Building2 } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useMock } from "@/mock/store";
@@ -23,10 +23,12 @@ export function IssueCardDialog({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const { issueCard } = useMock();
   const [open, setOpen] = useState(false);
-  const [type, setType] = useState<"virtual" | "physical">("virtual");
+  const [type, setType] = useState<"virtual" | "physical" | "single_use" | "vendor">("virtual");
   const [currency, setCurrency] = useState("USD");
   const [name, setName] = useState("");
   const [limit, setLimit] = useState(10000);
+  const [boundMerchant, setBoundMerchant] = useState("");
+  const needsMerchant = type === "single_use" || type === "vendor";
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,11 +39,13 @@ export function IssueCardDialog({ children }: { children: ReactNode }) {
       last4: String(Math.floor(1000 + Math.random() * 9000)),
       currency,
       limit: Number(limit) || 10000,
+      ...(needsMerchant && boundMerchant.trim() ? { boundMerchant: boundMerchant.trim() } : {}),
     });
     setOpen(false);
     setName("");
     setLimit(10000);
     setType("virtual");
+    setBoundMerchant("");
     toast(t("iss.issued"));
   };
 
@@ -58,6 +62,8 @@ export function IssueCardDialog({ children }: { children: ReactNode }) {
             <div className="grid grid-cols-2 gap-2">
               <TypeOption active={type === "virtual"} onClick={() => setType("virtual")} icon={<CreditCard className="size-4" />} label={t("iss.virtual")} />
               <TypeOption active={type === "physical"} onClick={() => setType("physical")} icon={<Wallet className="size-4" />} label={t("iss.physical")} />
+              <TypeOption active={type === "single_use"} onClick={() => setType("single_use")} icon={<Zap className="size-4" />} label={t("iss.singleUse")} />
+              <TypeOption active={type === "vendor"} onClick={() => setType("vendor")} icon={<Building2 className="size-4" />} label={t("iss.vendorCard")} />
             </div>
           </div>
 
@@ -65,6 +71,13 @@ export function IssueCardDialog({ children }: { children: ReactNode }) {
             <Label htmlFor="cardName">{t("iss.cardName")}</Label>
             <Input id="cardName" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("iss.cardNamePh")} required />
           </div>
+
+          {needsMerchant && (
+            <div className="space-y-1.5">
+              <Label htmlFor="boundMerchant">{t("iss.boundMerchant")}</Label>
+              <Input id="boundMerchant" value={boundMerchant} onChange={(e) => setBoundMerchant(e.target.value)} placeholder={t("iss.boundMerchantPh")} />
+            </div>
+          )}
 
           <div className="grid grid-cols-[1fr_7rem] gap-3">
             <div className="space-y-1.5">

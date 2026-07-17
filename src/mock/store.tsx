@@ -76,7 +76,7 @@ import {
   spendProgramsSeed,
   type SpendProgram,
 } from "./more";
-import { cards as initialCards, notifications as notificationsSeed, type Card, type CardControls, type CardChannel, type CardAutoTopup } from "./data";
+import { cards as initialCards, notifications as notificationsSeed, type Card, type CardControls, type CardChannel, type CardAutoTopup, type WalletToken } from "./data";
 
 /** 结汇阶段：0 发起 · 1 合规审核 · 2 兑换 · 3 汇出 · 4 到账 */
 export type SettleStage = 0 | 1 | 2 | 3 | 4;
@@ -109,10 +109,12 @@ export type CardTxn = {
   channel?: CardChannel;
   status: "authorized" | "cleared" | "declined";
   reason?: string;
+  /** 中继实时授权（JIT）决策耗时与决策方：商户手动 or 超时兜底（发卡 P1-F6） */
+  jit?: { decisionMs: number; decidedBy: "merchant" | "fallback" };
 };
 
 /** 发卡消费管控引擎：授权前校验 MCC / 渠道 / 单笔·日·月限额 / 频次 */
-export type SpendCheck = { ok: boolean; reason?: string };
+export type SpendCheck = { ok: boolean; reason?: string; txnId?: string };
 function evaluateControls(card: Card, p: { amount: number; mcc: string; channel: CardChannel }): SpendCheck {
   if (card.status === "frozen") return { ok: false, reason: "frozen" };
   if (card.status !== "active") return { ok: false, reason: "inactive" };
@@ -205,7 +207,7 @@ type MockValue = {
   terminateForward: (id: string) => void;
   cards: Card[];
   cardTxns: Record<string, CardTxn[]>;
-  issueCard: (p: { name: string; type: "virtual" | "physical"; brand: string; last4: string; currency: string; limit: number }) => string;
+  issueCard: (p: { name: string; type: "virtual" | "physical" | "single_use" | "vendor"; brand: string; last4: string; currency: string; limit: number; boundMerchant?: string }) => string;
   activateCard: (id: string) => void;
   // 持卡人 + 开卡审批
   cardholders: Cardholder[];
@@ -214,11 +216,19 @@ type MockValue = {
   approveCardRequest: (id: string) => void;
   rejectCardRequest: (id: string) => void;
   spendOnCard: (p: { cardId: string; currency: string; merchant: string; amount: number; mcc: string; channel: CardChannel }) => SpendCheck;
+  // 中继实时授权 JIT：商户实时决策（或超时兜底）回填已授权卡交易（发卡 P1-F6）
+  resolveAuthorization: (cardId: string, txnId: string, decision: "approve" | "decline", jit?: { decisionMs: number; decidedBy: "merchant" | "fallback" }) => void;
   updateCardControls: (cardId: string, patch: Partial<CardControls>) => void;
   topupCard: (cardId: string, amount: number) => void;
   setAutoTopup: (cardId: string, patch: Partial<CardAutoTopup>) => void;
   setCardFrozen: (cardId: string, frozen: boolean) => void;
   terminateCard: (cardId: string) => void;
+  // 数字钱包绑定：Apple Pay / Google Pay network token（发卡 P2-F7）
+  provisionWallet: (cardId: string, wallet: "apple" | "google") => void;
+  verifyToken: (cardId: string, tokenId: string) => void;
+  removeToken: (cardId: string, tokenId: string) => void;
+  // 供应商专卡一键换号（发卡 P2-F10）
+  rotateCardNumber: (cardId: string) => void;
   // 消费方案模板 + 批量发卡
   spendPrograms: SpendProgram[];
   createProgram: (p: Omit<SpendProgram, "id">) => void;
@@ -492,6 +502,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const fwdSeqRef = useRef(2041);
   const seqRef = useRef(43);
   const cardSeqRef = useRef(0);
+  const tokenSeqRef = useRef(9000);
   const poSeqRef = useRef(1);
   const notifSeqRef = useRef(0);
   const ledgerSeqRef = useRef(90231);
@@ -740,7 +751,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     const tid = `ct${++cardSeqRef.current}`;
     if (!check.ok) {
       setCardTxns((prev) => ({ ...prev, [cardId]: [{ id: tid, merchant, amount, mcc, channel, status: "declined", reason: check.reason }, ...(prev[cardId] || [])] }));
-      return check;
+      return { ...check, txnId: tid };
     }
     // 卡资金账户：从卡内余额扣款；开启自动充值且不足则先从主账户加油到目标
     const topupAmt = card.autoTopup.on && card.cardBalance < amount ? Math.round((card.autoTopup.target - card.cardBalance) * 100) / 100 : 0;
@@ -752,7 +763,38 @@ export function MockProvider({ children }: { children: ReactNode }) {
     // 两段式：先授权(预占额度)，由 tick 自动清算入账
     setCardTxns((prev) => ({ ...prev, [cardId]: [{ id: tid, merchant, amount, mcc, channel, status: "authorized" }, ...(prev[cardId] || [])] }));
     pushLedger({ type: "card", desc: merchant, dir: "out", amount, currency, status: "settled" });
-    return check;
+    return { ...check, txnId: tid };
+  };
+  // 中继实时授权 JIT：商户在超时前决策（或超时按 jitFallback 兜底）后回填已授权卡交易（发卡 P1-F6）
+  // 批准→跳过等待直接清算（tick 会自然跳过非 authorized 记录）；拒绝→回滚授权时预占的卡内余额/计数，并记 jitDeclined 拒付原因
+  const resolveAuthorization: MockValue["resolveAuthorization"] = (cardId, txnId, decision, jit) => {
+    const txn = cardTxnsRef.current[cardId]?.find((x) => x.id === txnId && x.status === "authorized");
+    if (!txn) return;
+    if (decision === "decline") {
+      setCards((prev) =>
+        prev.map((c) =>
+          c.id === cardId
+            ? {
+                ...c,
+                cardBalance: Math.round((c.cardBalance + txn.amount) * 100) / 100,
+                spent: Math.max(0, Math.round((c.spent - txn.amount) * 100) / 100),
+                spentToday: Math.max(0, Math.round((c.spentToday - txn.amount) * 100) / 100),
+                monthCount: Math.max(0, c.monthCount - 1),
+              }
+            : c,
+        ),
+      );
+    }
+    setCardTxns((prev) => ({
+      ...prev,
+      [cardId]: (prev[cardId] || []).map((x) =>
+        x.id === txnId && x.status === "authorized"
+          ? decision === "approve"
+            ? { ...x, status: "cleared" as const, ...(jit ? { jit } : {}) }
+            : { ...x, status: "declined" as const, reason: "jitDeclined", ...(jit ? { jit } : {}) }
+          : x,
+      ),
+    }));
   };
   const updateCardControls: MockValue["updateCardControls"] = (cardId, patch) =>
     setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, controls: { ...c.controls, ...patch } } : c)));
@@ -766,9 +808,63 @@ export function MockProvider({ children }: { children: ReactNode }) {
   };
   const setAutoTopup: MockValue["setAutoTopup"] = (cardId, patch) =>
     setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, autoTopup: { ...c.autoTopup, ...patch } } : c)));
+  // 冻结/解冻联动数字钱包令牌：卡冻结时挂起已生效令牌，解冻时恢复（无 tokens 的卡行为完全不变）
   const setCardFrozen: MockValue["setCardFrozen"] = (cardId, frozen) =>
-    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, status: frozen ? "frozen" : "active" } : c)));
+    setCards((prev) =>
+      prev.map((c) => {
+        if (c.id !== cardId) return c;
+        const tokens = c.tokens?.map((t) =>
+          frozen && t.status === "active" ? { ...t, status: "suspended" as const } : !frozen && t.status === "suspended" ? { ...t, status: "active" as const } : t,
+        );
+        return { ...c, status: frozen ? "frozen" : "active", ...(tokens ? { tokens } : {}) };
+      }),
+    );
   const terminateCard: MockValue["terminateCard"] = (cardId) => setCards((prev) => prev.filter((c) => c.id !== cardId));
+
+  // ── 数字钱包绑定：Apple Pay / Google Pay network token（发卡 P2-F7）──
+  const provisionWallet: MockValue["provisionWallet"] = (cardId, wallet) => {
+    const card = cardsRef.current.find((c) => c.id === cardId);
+    if (!card) return;
+    const id = `WT-${++tokenSeqRef.current}`;
+    const token: WalletToken = { id, cardId, wallet, status: "inactive", needs2fa: false };
+    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, tokens: [token, ...(c.tokens ?? [])] } : c)));
+    const walletLabel = wallet === "apple" ? "Apple Pay" : "Google Pay";
+    // setTimeout 模拟风控实时评估：低风险直接生效，有疑虑则需二次验证（不影响 store 全局 2600ms tick）
+    window.setTimeout(() => {
+      const risky = Math.random() < 0.35;
+      setCards((prev) =>
+        prev.map((c) =>
+          c.id === cardId
+            ? { ...c, tokens: (c.tokens ?? []).map((t) => (t.id === id ? { ...t, status: risky ? "inactive" : "active", needs2fa: risky } : t)) }
+            : c,
+        ),
+      );
+      pushNotif(
+        risky ? "warning" : "success",
+        risky ? `${card.name} 添加到 ${walletLabel} 需完成二次验证` : `${card.name} 已添加到 ${walletLabel}`,
+        risky ? `${card.name} needs extra verification for ${walletLabel}` : `${card.name} added to ${walletLabel}`,
+      );
+    }, 1800);
+  };
+  const verifyToken: MockValue["verifyToken"] = (cardId, tokenId) => {
+    setCards((prev) =>
+      prev.map((c) =>
+        c.id === cardId ? { ...c, tokens: (c.tokens ?? []).map((t) => (t.id === tokenId ? { ...t, status: "active" as const, needs2fa: false } : t)) } : c,
+      ),
+    );
+    pushNotif("success", "数字钱包二次验证通过，令牌已生效", "Wallet verification passed — token is now active");
+  };
+  const removeToken: MockValue["removeToken"] = (cardId, tokenId) =>
+    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, tokens: (c.tokens ?? []).filter((t) => t.id !== tokenId) } : c)));
+
+  // ── 供应商专卡一键换号（发卡 P2-F10）──
+  const rotateCardNumber: MockValue["rotateCardNumber"] = (cardId) => {
+    const card = cardsRef.current.find((c) => c.id === cardId);
+    if (!card) return;
+    const last4 = String(Math.floor(1000 + Math.random() * 9000));
+    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, last4 } : c)));
+    pushNotif("success", `${card.name} 卡号已更新为 •••• ${last4}（示例）`, `${card.name} card number rotated to •••• ${last4} (sample)`);
+  };
 
   // ── 消费方案模板 + 批量发卡：预设 MCC/限额策略；批量派发时错峰逐张开卡，再把方案套到新卡管控上 ──
   const createProgram: MockValue["createProgram"] = (p) => {
@@ -1174,6 +1270,15 @@ export function MockProvider({ children }: { children: ReactNode }) {
           for (const k in prev) next[k] = prev[k].map((x) => (x.status === "authorized" ? { ...x, status: "cleared" } : x));
           return next;
         });
+        // 单次性卡：用后即焚——本次清算后立即冻结并打标，避免二次使用（发卡 P2-F10）
+        const consumedIds = Object.keys(ct).filter((k) => {
+          if (!ct[k].some((x) => x.status === "authorized")) return false;
+          const card = cardsRef.current.find((c) => c.id === k);
+          return !!card && card.type === "single_use" && card.status !== "frozen";
+        });
+        if (consumedIds.length) {
+          setCards((prev) => prev.map((c) => (consumedIds.includes(c.id) ? { ...c, status: "frozen", consumedAt: "刚刚" } : c)));
+        }
       }
 
       // 卡资金账户油量灯：开启自动充值且低于阈值 → 从主账户加油到目标
@@ -1296,11 +1401,16 @@ export function MockProvider({ children }: { children: ReactNode }) {
         approveCardRequest,
         rejectCardRequest,
         spendOnCard,
+        resolveAuthorization,
         updateCardControls,
         topupCard,
         setAutoTopup,
         setCardFrozen,
         terminateCard,
+        provisionWallet,
+        verifyToken,
+        removeToken,
+        rotateCardNumber,
         spendPrograms,
         createProgram,
         bulkIssue,

@@ -54,10 +54,19 @@ export type CardControls = {
 
 export type CardAutoTopup = { on: boolean; threshold: number; target: number };
 
+/** 数字钱包令牌（Apple Pay / Google Pay network token，发卡 P2-F7） */
+export type WalletToken = {
+  id: string;
+  cardId: string;
+  wallet: "apple" | "google";
+  status: "inactive" | "active" | "suspended";
+  needs2fa: boolean;
+};
+
 export type Card = {
   id: string;
   name: string;
-  type: "virtual" | "physical";
+  type: "virtual" | "physical" | "single_use" | "vendor";
   brand: string;
   last4: string;
   currency: string;
@@ -73,6 +82,14 @@ export type Card = {
   autoTopup: CardAutoTopup;
   // 实体卡制卡履约
   fulfillment?: { stage: FulfillStage; eta: string };
+  // 中继实时授权 JIT（发卡 P1-F6）：开启后每笔授权需商户在超时前决策，超时按 jitFallback 兜底
+  jitEnabled?: boolean;
+  jitFallback?: "approve" | "decline";
+  // 数字钱包绑定（发卡 P2-F7）
+  tokens?: WalletToken[];
+  // 单次性 / 供应商专卡（发卡 P2-F10）
+  boundMerchant?: string;
+  consumedAt?: string;
 };
 
 const ctrl = (p: Partial<CardControls> & { channels?: Partial<Record<CardChannel, boolean>> } = {}): CardControls => ({
@@ -87,15 +104,24 @@ const ctrl = (p: Partial<CardControls> & { channels?: Partial<Record<CardChannel
 
 export const cards: Card[] = [
   { id: "c1", name: "市场投放卡", type: "virtual", brand: "Visa", last4: "4242", currency: "USD", limit: 20000, spent: 12480, status: "active", spentToday: 640, monthCount: 23, cardBalance: 3200, autoTopup: { on: true, threshold: 2000, target: 5000 },
+    tokens: [{ id: "WT-1001", cardId: "c1", wallet: "google", status: "inactive", needs2fa: true }],
     controls: ctrl({ channels: { online: true, atm: false, pos: false, crossBorder: true }, mccMode: "allow", mccList: ["5967", "4899", "5734"], perTxnLimit: 5000, dailyLimit: 8000, monthlyLimit: 20000, velocity: { maxCount: 50, window: "month" } }) },
   { id: "c2", name: "SaaS 订阅卡", type: "virtual", brand: "Mastercard", last4: "5100", currency: "USD", limit: 5000, spent: 3260.5, status: "active", spentToday: 0, monthCount: 8, cardBalance: 900, autoTopup: { on: true, threshold: 500, target: 2000 },
+    tokens: [{ id: "WT-1002", cardId: "c2", wallet: "apple", status: "active", needs2fa: false }],
     controls: ctrl({ channels: { online: true, atm: false, pos: false, crossBorder: true }, mccMode: "allow", mccList: ["5734", "4899"], perTxnLimit: 1000, dailyLimit: 2000, monthlyLimit: 5000, velocity: { maxCount: 20, window: "month" } }) },
   { id: "c3", name: "差旅实体卡", type: "physical", brand: "Visa", last4: "8817", currency: "EUR", limit: 10000, spent: 1890, status: "frozen", spentToday: 0, monthCount: 5, cardBalance: 4100, autoTopup: { on: false, threshold: 1000, target: 4000 },
     controls: ctrl({ channels: { online: true, atm: true, pos: true, crossBorder: true }, mccMode: "allow", mccList: ["4511", "7011", "5812", "5541"], perTxnLimit: 3000, dailyLimit: 5000, monthlyLimit: 10000, velocity: { maxCount: 40, window: "month" } }) },
   { id: "c4", name: "供应商付款卡", type: "virtual", brand: "Mastercard", last4: "3390", currency: "USD", limit: 50000, spent: 41200, status: "active", spentToday: 5200, monthCount: 31, cardBalance: 15000, autoTopup: { on: false, threshold: 5000, target: 20000 },
+    jitEnabled: true, jitFallback: "decline",
     controls: ctrl({ channels: { online: true, atm: false, pos: false, crossBorder: true }, mccMode: "deny", mccList: [], perTxnLimit: 50000, dailyLimit: 50000, monthlyLimit: 50000, velocity: { maxCount: 80, window: "month" } }) },
   { id: "c5", name: "运营团队实体卡", type: "physical", brand: "Visa", last4: "6602", currency: "USD", limit: 8000, spent: 0, status: "inactive", spentToday: 0, monthCount: 0, cardBalance: 2000, autoTopup: { on: true, threshold: 800, target: 2000 }, fulfillment: { stage: "shipped", eta: "3-5 个工作日" },
     controls: ctrl({ channels: { online: true, atm: true, pos: true, crossBorder: true }, mccMode: "deny", mccList: [], perTxnLimit: 3000, dailyLimit: 5000, monthlyLimit: 8000, velocity: { maxCount: 40, window: "month" } }) },
+  { id: "c6", name: "一次性采购卡", type: "single_use", brand: "Visa", last4: "7734", currency: "USD", limit: 1500, spent: 0, status: "active", spentToday: 0, monthCount: 0, cardBalance: 1500, autoTopup: { on: false, threshold: 0, target: 0 },
+    boundMerchant: "示例广告素材供应商（一次性）",
+    controls: ctrl({ channels: { online: true, atm: false, pos: false, crossBorder: true }, mccMode: "allow", mccList: ["5967"], perTxnLimit: 1500, dailyLimit: 1500, monthlyLimit: 1500, velocity: { maxCount: 1, window: "month" } }) },
+  { id: "c7", name: "供应商专卡 · 示例物流商", type: "vendor", brand: "Mastercard", last4: "2219", currency: "USD", limit: 30000, spent: 6400, status: "active", spentToday: 0, monthCount: 4, cardBalance: 12000, autoTopup: { on: true, threshold: 3000, target: 15000 },
+    boundMerchant: "示例跨境物流服务商",
+    controls: ctrl({ channels: { online: true, atm: false, pos: false, crossBorder: true }, mccMode: "deny", mccList: [], perTxnLimit: 15000, dailyLimit: 20000, monthlyLimit: 30000, velocity: { maxCount: 30, window: "month" } }) },
 ];
 
 export type AcquiringTxn = {

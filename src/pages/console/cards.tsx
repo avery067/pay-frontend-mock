@@ -44,7 +44,7 @@ export default function CardsPage() {
               onClick={() => setCardId(c.id)}
               className="rounded-2xl border border-border bg-card p-4 text-left transition hover:shadow-md"
             >
-              <CardVisual name={c.name} brand={c.brand} last4={c.last4} currency={c.currency} frozen={c.status === "frozen"} />
+              <CardVisual name={c.name} brand={c.brand} last4={c.last4} currency={c.currency} frozen={c.status === "frozen"} type={c.type} />
               <div className="mt-3 flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">{c.name}</div>
