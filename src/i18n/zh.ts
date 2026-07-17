@@ -39,6 +39,7 @@ export const zh = {
     reports: "报表",
     team: "团队",
     statements: "对账单",
+    reconciliation: "对账中心",
   },
   landing: {
     eyebrow: "跨境支付基础设施",
@@ -924,6 +925,24 @@ export const zh = {
     download: "下载对账单",
     detailTitle: "结算明细",
     batchTotal: "批次净额",
+  },
+  recon: {
+    title: "对账中心",
+    subtitle: "账期对账单 → 打款批次 → 逐笔交易，按 Payout ID 三级勾稽 · 示例数据",
+    tabStatements: "对账单",
+    tabAdjustments: "差异",
+    colPeriod: "账期",
+    colPayoutId: "Payout ID",
+    colPayoutDate: "打款日",
+    colNetPaid: "净打款",
+    colChargebacks: "拒付",
+    emptyPeriod: "无已结算交易，未生成文件",
+    emptyPeriodDesc: "该账期内没有已完成的打款批次，暂无对账文件可用。",
+    statementDetailTitle: "对账单明细",
+    payoutDetailTitle: "打款批次明细",
+    colOriginalOrder: "原订单",
+    colDeductedBatch: "扣减批次",
+    adjustmentsDesc: "打款后发生的退款 / 拒付，将从后续批次的净打款中扣减。",
   },
 };
 

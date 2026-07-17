@@ -22,12 +22,18 @@ import {
   batchesSeed,
   payoutRecordsSeed,
   reservesSeed,
+  reconStatementsSeed,
+  adjustmentsSeed,
+  reconPayoutsSeed,
   type Balance,
   type SettleFund,
   type AcqTxn,
   type SettlementBatch,
   type PayoutRecord,
   type ReserveHold,
+  type ReconStatement,
+  type Adjustment,
+  type ReconPayout,
   disputes as disputesSeed,
   type Dispute,
   type DisputeStage,
@@ -203,6 +209,10 @@ type MockValue = {
   advanceBatch: (batchId: string) => void;
   instantPayout: (batchId: string) => void;
   releaseReserve: (reserveId: string) => void;
+  // 对账中心：账期对账单 + 打款批次明细 + 差异（打款后退款/拒付倒扣）
+  reconStatements: ReconStatement[];
+  reconPayouts: ReconPayout[];
+  adjustments: Adjustment[];
   // 争议闭环
   disputes: Dispute[];
   submitDisputeEvidence: (id: string) => void;
@@ -340,6 +350,9 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [batches, setBatches] = useState<SettlementBatch[]>(batchesSeed);
   const [payoutRecords, setPayoutRecords] = useState<PayoutRecord[]>(payoutRecordsSeed);
   const [reserves, setReserves] = useState<ReserveHold[]>(reservesSeed);
+  const [reconStatements, setReconStatements] = useState<ReconStatement[]>(reconStatementsSeed);
+  const [reconPayouts] = useState<ReconPayout[]>(reconPayoutsSeed);
+  const [adjustments, setAdjustments] = useState<Adjustment[]>(adjustmentsSeed);
   const [disputes, setDisputes] = useState<Dispute[]>(disputesSeed);
   const [notifs, setNotifs] = useState<Notif[]>(seedNotifs);
   const [ledger, setLedger] = useState<LedgerTxn[]>(ledgerSeed);
@@ -886,6 +899,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setBatches(batchesSeed);
     setPayoutRecords(payoutRecordsSeed);
     setReserves(reservesSeed);
+    setReconStatements(reconStatementsSeed);
+    setAdjustments(adjustmentsSeed);
     setDisputes(disputesSeed);
     setNotifs(seedNotifs);
     setLedger(ledgerSeed);
@@ -1044,6 +1059,9 @@ export function MockProvider({ children }: { children: ReactNode }) {
         advanceBatch,
         instantPayout,
         releaseReserve,
+        reconStatements,
+        reconPayouts,
+        adjustments,
         disputes,
         submitDisputeEvidence,
         acceptDispute,

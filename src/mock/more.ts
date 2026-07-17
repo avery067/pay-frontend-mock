@@ -458,3 +458,72 @@ export const reservesSeed: ReserveHold[] = [
   { id: "RSV-0007", batchId: "PO-20260710", amount: 432, currency: "USD", heldOn: "07-10", releaseOn: "08-09", released: false },
   { id: "RSV-0005", batchId: "PO-20260620", amount: 820, currency: "USD", heldOn: "06-20", releaseOn: "07-20", released: false },
 ];
+
+// ── 对账中心：账期对账单 → 打款批次（Payout ID）→ 逐笔交易 三级下钻 ──
+/** 打款批次明细（对账口径，独立于收单在途 batches，覆盖历史已完结批次） */
+export type ReconPayout = {
+  id: string; // Payout ID
+  batchId: string;
+  payoutDate: string;
+  gross: number;
+  fees: number;
+  reserve: number;
+  net: number;
+  txns: { order: string; merchant: string; gross: number; fee: number; reserve: number; net: number }[];
+};
+export const reconPayoutsSeed: ReconPayout[] = [
+  {
+    id: "PAY-20260710-01", batchId: "PO-20260710", payoutDate: "07-10", gross: 5400, fees: 156.6, reserve: 432, net: 4811.4,
+    txns: [{ order: "OD-88220", merchant: "Initech（示例）", gross: 5400, fee: 156.6, reserve: 432, net: 4811.4 }],
+  },
+  {
+    id: "PAY-20260612-01", batchId: "PO-20260612", payoutDate: "06-12", gross: 3450, fees: 100.1, reserve: 0, net: 3349.9,
+    txns: [{ order: "OD-87920", merchant: "示例网店", gross: 3450, fee: 100.1, reserve: 0, net: 3349.9 }],
+  },
+  {
+    id: "PAY-20260610-01", batchId: "PO-20260610", payoutDate: "06-10", gross: 2840, fees: 82.4, reserve: 0, net: 2757.6,
+    txns: [
+      { order: "OD-87905", merchant: "Acme Inc.（示例）", gross: 2200, fee: 63.8, reserve: 0, net: 2136.2 },
+      { order: "OD-87890", merchant: "Wayne Co.（示例）", gross: 640, fee: 18.6, reserve: 0, net: 621.4 },
+    ],
+  },
+  {
+    id: "PAY-20260405-01", batchId: "PO-20260405", payoutDate: "04-05", gross: 24100, fees: 698.9, reserve: 0, net: 23401.1,
+    txns: [
+      { order: "OD-86210", merchant: "Umbrella（示例）", gross: 15200, fee: 440.8, reserve: 0, net: 14759.2 },
+      { order: "OD-86188", merchant: "Hooli（示例）", gross: 8900, fee: 258.1, reserve: 0, net: 8641.9 },
+    ],
+  },
+];
+
+/** 对账单（账期级）：周期汇总 + 勾稽（毛额 − 手续费 − 退款 − 拒付 − 储备 = 净打款） */
+export type ReconStatement = {
+  period: string;
+  payoutIds: string[];
+  gross: number;
+  fees: number;
+  refunds: number;
+  chargebacks: number;
+  reserve: number;
+  netPaid: number;
+  empty: boolean;
+};
+export const reconStatementsSeed: ReconStatement[] = [
+  { period: "2026-07", payoutIds: ["PAY-20260710-01"], gross: 5400, fees: 156.6, refunds: 0, chargebacks: 0, reserve: 432, netPaid: 4811.4, empty: false },
+  { period: "2026-06", payoutIds: ["PAY-20260612-01", "PAY-20260610-01"], gross: 6290, fees: 182.5, refunds: 0, chargebacks: 0, reserve: 0, netPaid: 6107.5, empty: false },
+  { period: "2026-05", payoutIds: [], gross: 0, fees: 0, refunds: 0, chargebacks: 0, reserve: 0, netPaid: 0, empty: true },
+  { period: "2026-04", payoutIds: ["PAY-20260405-01"], gross: 24100, fees: 698.9, refunds: 356, chargebacks: 0, reserve: 0, netPaid: 23045.1, empty: false },
+];
+
+/** 差异：打款后发生的退款 / 拒付倒扣，标明将从哪个后续批次扣减 */
+export type Adjustment = {
+  id: string;
+  type: "refund" | "chargeback";
+  amount: number;
+  originalOrder: string;
+  deductedFromBatch: string;
+};
+export const adjustmentsSeed: Adjustment[] = [
+  { id: "ADJ-9001", type: "refund", amount: 220, originalOrder: "OD-87905", deductedFromBatch: "PO-20260718" },
+  { id: "ADJ-9002", type: "chargeback", amount: 640, originalOrder: "OD-87890", deductedFromBatch: "PO-20260723" },
+];
