@@ -34,6 +34,9 @@ import {
   riskRulesSeed,
   type RiskRule,
   riskProfileSeed,
+  paymentMethodsSeed,
+  type PaymentMethod,
+  type MethodKind,
 } from "./more";
 import { cards as initialCards, notifications as notificationsSeed, type Card, type CardControls, type CardChannel } from "./data";
 
@@ -154,7 +157,10 @@ type MockValue = {
   // 收款链接闭环
   paymentLinks: PayLink[];
   createLink: (p: { name: string; amount: number; currency: string; type: "once" | "reuse" }) => void;
-  collectLink: (id: string) => void;
+  collectLink: (id: string, methodInfo?: { method: string; methodKind?: MethodKind; payerCountry?: string }) => void;
+  // 本地支付方式矩阵
+  paymentMethods: PaymentMethod[];
+  toggleMethod: (code: string) => void;
   // 收款人
   recipients: Recipient[];
   addRecipient: (p: { name: string; account: string; country: string; currency: string }) => void;
@@ -225,6 +231,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [spotRates, setSpotRates] = useState<Record<string, number>>({ ...RATES });
   const [fxOrders, setFxOrders] = useState<FxOrder[]>(fxOrdersSeed);
   const [riskRules, setRiskRules] = useState<RiskRule[]>(riskRulesSeed);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(paymentMethodsSeed);
 
   const recordsRef = useRef(records);
   recordsRef.current = records;
@@ -532,7 +539,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     const link: PayLink = { id: `PL-${seq}`, name, amount, currency, type, status: "active", created: "", slug: `link-${seq}` };
     setLinks((prev) => [link, ...prev]);
   };
-  const collectLink: MockValue["collectLink"] = (id) => {
+  const collectLink: MockValue["collectLink"] = (id, methodInfo) => {
     const l = linksRef.current.find((x) => x.id === id);
     if (!l || l.status === "paid") return;
     const fee = Math.round((l.amount * 0.029 + 0.3) * 100) / 100;
@@ -541,13 +548,15 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setBalances((bs) => bs.map((b) => (b.currency === l.currency ? { ...b, available: b.available + net, usdEq: b.usdEq + net * usdPer } : b)));
     const order = `OD-${++acqSeqRef.current}`;
     setAcqTxns((prev) => [
-      { order, merchant: l.name, method: "收款链接", gross: l.amount, fee, reserve: 0, net, currency: l.currency, captureMode: "auto", stage: 5, status: "credited", time: "", batchId: undefined },
+      { order, merchant: l.name, method: methodInfo?.method ?? "收款链接", methodKind: methodInfo?.methodKind, payerCountry: methodInfo?.payerCountry, gross: l.amount, fee, reserve: 0, net, currency: l.currency, captureMode: "auto", stage: 5, status: "credited", time: "", batchId: undefined },
       ...prev,
     ]);
     pushLedger({ type: "payment", desc: `收款链接 · ${l.name}`, dir: "in", amount: net, currency: l.currency, status: "settled" });
     pushNotif("success", `收款链接「${l.name}」收到付款 ${l.currency} ${net.toLocaleString()}`, `Payment link “${l.name}” collected`);
     if (l.type === "once") setLinks((prev) => prev.map((x) => (x.id === id ? { ...x, status: "paid" } : x)));
   };
+  const toggleMethod: MockValue["toggleMethod"] = (code) =>
+    setPaymentMethods((prev) => prev.map((m) => (m.code === code ? { ...m, enabled: !m.enabled } : m)));
 
   // ── 收款人：新增受益人（付款对话框实时可选）──
   const addRecipient: MockValue["addRecipient"] = ({ name, account, country, currency }) => {
@@ -574,6 +583,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setSpotRates({ ...RATES });
     setFxOrders(fxOrdersSeed);
     setRiskRules(riskRulesSeed);
+    setPaymentMethods(paymentMethodsSeed);
   };
 
   // 自动推进：结汇处理中的记录 + 已开始结算的批次
@@ -698,6 +708,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
         paymentLinks: links,
         createLink,
         collectLink,
+        paymentMethods,
+        toggleMethod,
         recipients: recipientList,
         addRecipient,
         notifications: notifs,

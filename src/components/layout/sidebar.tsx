@@ -8,6 +8,7 @@ import {
   Send,
   Users,
   HandCoins,
+  Wallet2,
   Link2,
   Scale,
   ShieldAlert,
@@ -44,6 +45,7 @@ const GROUPS: Group[] = [
     label: "nav.groupAccept",
     items: [
       { to: "/app/payments", icon: HandCoins, key: "nav.payments" },
+      { to: "/app/methods", icon: Wallet2, key: "nav.methods" },
       { to: "/app/links", icon: Link2, key: "nav.links" },
       { to: "/app/risk", icon: ShieldAlert, key: "nav.risk" },
       { to: "/app/disputes", icon: Scale, key: "nav.disputes" },

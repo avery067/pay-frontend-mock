@@ -141,6 +141,7 @@ export type PayLink = {
   status: "active" | "paid";
   created: string;
   slug: string;
+  methods?: string[];
 };
 export const paymentLinks: PayLink[] = [
   { id: "PL-3021", name: "订阅费 Pro（示例）", amount: 299, currency: "USD", type: "reuse", status: "active", created: "07-14", slug: "pro" },
@@ -200,6 +201,9 @@ export type AcqTxn = {
   riskScore?: number;
   riskRules?: string[];
   threeDS?: "none" | "frictionless" | "challenged";
+  // 本地支付方式
+  methodKind?: MethodKind;
+  payerCountry?: string;
 };
 export const acqTxnsSeed: AcqTxn[] = [
   { order: "OD-88234", merchant: "Hooli（示例）", method: "Visa •••• 0198", gross: 4200, fee: 121.8, reserve: 0, net: 4078.2, currency: "USD", captureMode: "manual", stage: 0, status: "review", time: "09:31", riskScore: 82, riskRules: ["velocity", "geoMismatch"] },
@@ -227,6 +231,39 @@ export const riskRulesSeed: RiskRule[] = [
 // 拒付率画像（示例）
 export type RiskProfile = { disputeRatio: number; threshold: number };
 export const riskProfileSeed: RiskProfile = { disputeRatio: 0.72, threshold: 0.9 };
+
+// 本地支付方式矩阵（示例）：卡 / 钱包 / APM / BNPL / 现金码
+export type MethodKind = "card" | "wallet" | "apm" | "bnpl" | "cash";
+export type PaymentMethod = {
+  code: string;
+  name: string;
+  kind: MethodKind;
+  regions: string[];
+  currencies: string[];
+  enabled: boolean;
+  refundable: boolean;
+  async: boolean;
+};
+export const paymentMethodsSeed: PaymentMethod[] = [
+  { code: "visa", name: "Visa", kind: "card", regions: ["全球"], currencies: ["USD", "EUR", "CNY"], enabled: true, refundable: true, async: false },
+  { code: "mastercard", name: "Mastercard", kind: "card", regions: ["全球"], currencies: ["USD", "EUR", "CNY"], enabled: true, refundable: true, async: false },
+  { code: "amex", name: "American Express", kind: "card", regions: ["US", "EU"], currencies: ["USD", "EUR"], enabled: true, refundable: true, async: false },
+  { code: "unionpay", name: "UnionPay 银联", kind: "card", regions: ["CN", "APAC"], currencies: ["CNY", "HKD"], enabled: false, refundable: true, async: false },
+  { code: "applepay", name: "Apple Pay", kind: "wallet", regions: ["全球"], currencies: ["USD", "EUR", "GBP"], enabled: true, refundable: true, async: false },
+  { code: "googlepay", name: "Google Pay", kind: "wallet", regions: ["全球"], currencies: ["USD", "EUR", "GBP"], enabled: true, refundable: true, async: false },
+  { code: "alipay", name: "支付宝 Alipay", kind: "wallet", regions: ["CN", "APAC"], currencies: ["CNY", "USD"], enabled: true, refundable: true, async: false },
+  { code: "wechat", name: "微信支付 WeChat Pay", kind: "wallet", regions: ["CN", "APAC"], currencies: ["CNY", "USD"], enabled: true, refundable: true, async: false },
+  { code: "grabpay", name: "GrabPay", kind: "wallet", regions: ["SG", "MY", "APAC"], currencies: ["SGD", "MYR"], enabled: false, refundable: true, async: false },
+  { code: "ideal", name: "iDEAL", kind: "apm", regions: ["NL"], currencies: ["EUR"], enabled: true, refundable: true, async: true },
+  { code: "sepa", name: "SEPA Direct Debit", kind: "apm", regions: ["EU"], currencies: ["EUR"], enabled: true, refundable: true, async: true },
+  { code: "fpx", name: "FPX", kind: "apm", regions: ["MY"], currencies: ["MYR"], enabled: false, refundable: false, async: true },
+  { code: "paynow", name: "PayNow", kind: "apm", regions: ["SG"], currencies: ["SGD"], enabled: false, refundable: false, async: true },
+  { code: "klarna", name: "Klarna", kind: "bnpl", regions: ["US", "EU"], currencies: ["USD", "EUR"], enabled: false, refundable: true, async: true },
+  { code: "afterpay", name: "Afterpay", kind: "bnpl", regions: ["US", "AU"], currencies: ["USD", "AUD"], enabled: false, refundable: true, async: true },
+  { code: "boleto", name: "Boleto", kind: "cash", regions: ["BR"], currencies: ["BRL"], enabled: false, refundable: false, async: true },
+  { code: "pix", name: "PIX", kind: "cash", regions: ["BR"], currencies: ["BRL"], enabled: true, refundable: true, async: true },
+  { code: "oxxo", name: "OXXO", kind: "cash", regions: ["MX"], currencies: ["MXN"], enabled: false, refundable: false, async: true },
+];
 
 export type BatchStatus = "scheduled" | "settling" | "paid_out" | "credited";
 export type SettlementBatch = {
