@@ -51,7 +51,12 @@ const GROUPS: Group[] = [
       { to: "/app/disputes", icon: Scale, key: "nav.disputes" },
     ],
   },
-  { items: [{ to: "/app/cards", icon: CreditCard, key: "nav.cards" }] },
+  {
+    items: [
+      { to: "/app/cards", icon: CreditCard, key: "nav.cards" },
+      { to: "/app/cardholders", icon: Users, key: "nav.cardholders" },
+    ],
+  },
   {
     label: "nav.groupManage",
     items: [

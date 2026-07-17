@@ -18,6 +18,7 @@ import PaymentLinksPage from "@/pages/console/payment-links";
 import RiskPage from "@/pages/console/risk";
 import DisputesPage from "@/pages/console/disputes";
 import CardsPage from "@/pages/console/cards";
+import CardholdersPage from "@/pages/console/cardholders";
 import ReportsPage from "@/pages/console/reports";
 import StatementsPage from "@/pages/console/statements";
 import TeamPage from "@/pages/console/team";
@@ -46,6 +47,7 @@ export function App() {
         <Route path="risk" element={<RiskPage />} />
         <Route path="disputes" element={<DisputesPage />} />
         <Route path="cards" element={<CardsPage />} />
+        <Route path="cardholders" element={<CardholdersPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="statements" element={<StatementsPage />} />
         <Route path="team" element={<TeamPage />} />

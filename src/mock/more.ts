@@ -107,6 +107,27 @@ export type SettleBatch = {
 export const settleBatchesSeed: SettleBatch[] = [
   { id: "BSTL-3301", fundIds: [], count: 4, totalUsd: 186400, status: "pending_approval", approvals: [{ role: "财务复核", done: true }, { role: "合规审批", done: false }], created: "07-16" },
 ];
+
+/** 持卡人 + 开卡审批 */
+export type Cardholder = { id: string; name: string; email: string; dept: string; status: "active" | "disabled" };
+export const cardholdersSeed: Cardholder[] = [
+  { id: "H-201", name: "Alex Chen（示例）", email: "alex@example.com", dept: "市场部", status: "active" },
+  { id: "H-202", name: "Sam Lee（示例）", email: "sam@example.com", dept: "运营部", status: "active" },
+  { id: "H-203", name: "Jordan Wu（示例）", email: "jordan@example.com", dept: "采购部", status: "active" },
+];
+export type CardRequest = {
+  id: string;
+  holderId: string;
+  holderName: string;
+  cardName: string;
+  limit: number;
+  status: "pending_approval" | "approved" | "rejected";
+  approvals: ApprovalStep[];
+  created: string;
+};
+export const cardRequestsSeed: CardRequest[] = [
+  { id: "CR-4410", holderId: "H-203", holderName: "Jordan Wu（示例）", cardName: "采购专用卡", limit: 15000, status: "pending_approval", approvals: [{ role: "部门主管", done: true }, { role: "财务审批", done: false }], created: "07-16" },
+];
 export const settlePendingUsd = settleFunds.reduce((s, f) => s + f.usdEq, 0);
 
 // 结汇记录（示例）

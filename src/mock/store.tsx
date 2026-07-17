@@ -14,6 +14,10 @@ import {
   settleQuota as settleQuotaSeed,
   settleBatchesSeed,
   type SettleBatch,
+  cardholdersSeed,
+  type Cardholder,
+  cardRequestsSeed,
+  type CardRequest,
   acqTxnsSeed,
   batchesSeed,
   payoutRecordsSeed,
@@ -152,6 +156,12 @@ type MockValue = {
   cardTxns: Record<string, CardTxn[]>;
   issueCard: (p: { name: string; type: "virtual" | "physical"; brand: string; last4: string; currency: string; limit: number }) => string;
   activateCard: (id: string) => void;
+  // 持卡人 + 开卡审批
+  cardholders: Cardholder[];
+  cardRequests: CardRequest[];
+  requestCard: (p: { holderId: string; cardName: string; limit: number }) => void;
+  approveCardRequest: (id: string) => void;
+  rejectCardRequest: (id: string) => void;
   spendOnCard: (p: { cardId: string; currency: string; merchant: string; amount: number; mcc: string; channel: CardChannel }) => SpendCheck;
   updateCardControls: (cardId: string, patch: Partial<CardControls>) => void;
   topupCard: (cardId: string, amount: number) => void;
@@ -259,6 +269,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [settleQuota, setSettleQuota] = useState<{ usedRmb: number; totalRmb: number }>({ ...settleQuotaSeed });
   const [settleBatches, setSettleBatches] = useState<SettleBatch[]>(settleBatchesSeed);
   const [cards, setCards] = useState<Card[]>(initialCards);
+  const [cardholders] = useState<Cardholder[]>(cardholdersSeed);
+  const [cardRequests, setCardRequests] = useState<CardRequest[]>(cardRequestsSeed);
   const [cardTxns, setCardTxns] = useState<Record<string, CardTxn[]>>({});
   const [acqTxns, setAcqTxns] = useState<AcqTxn[]>(acqTxnsSeed);
   const [batches, setBatches] = useState<SettlementBatch[]>(batchesSeed);
@@ -286,6 +298,9 @@ export function MockProvider({ children }: { children: ReactNode }) {
   cardsRef.current = cards;
   const cardTxnsRef = useRef(cardTxns);
   cardTxnsRef.current = cardTxns;
+  const cardRequestsRef = useRef(cardRequests);
+  cardRequestsRef.current = cardRequests;
+  const reqSeqRef = useRef(4410);
   const batchesRef = useRef(batches);
   batchesRef.current = batches;
   const acqTxnsRef = useRef(acqTxns);
@@ -472,6 +487,27 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setCards((prev) => prev.map((c) => (c.id === id && c.status === "inactive" ? { ...c, status: "active", fulfillment: undefined } : c)));
     pushNotif("success", `实体卡 ${id} 已激活`, `Card ${id} activated`);
   };
+  // 开卡审批：申请 → 多级审批 → 通过则为持卡人签发卡
+  const requestCard: MockValue["requestCard"] = ({ holderId, cardName, limit }) => {
+    const holder = cardholders.find((h) => h.id === holderId);
+    const id = `CR-${++reqSeqRef.current}`;
+    const req: CardRequest = { id, holderId, holderName: holder?.name ?? "—", cardName, limit, status: "pending_approval", approvals: [{ role: "部门主管", done: false }, { role: "财务审批", done: false }], created: "刚刚" };
+    setCardRequests((prev) => [req, ...prev]);
+  };
+  const approveCardRequest: MockValue["approveCardRequest"] = (id) => {
+    const r = cardRequestsRef.current.find((x) => x.id === id);
+    if (!r || r.status !== "pending_approval") return;
+    const nextApprovals = r.approvals.map((a, i) => (i === r.approvals.findIndex((s) => !s.done) ? { ...a, done: true } : a));
+    if (nextApprovals.every((a) => a.done)) {
+      issueCard({ name: r.cardName, type: "virtual", brand: "Visa", last4: String(4000 + (reqSeqRef.current % 6000)), currency: "USD", limit: r.limit });
+      setCardRequests((prev) => prev.map((x) => (x.id === id ? { ...x, approvals: nextApprovals, status: "approved" } : x)));
+      pushNotif("success", `开卡申请 ${id} 审批通过，已为 ${r.holderName} 签发`, `Card request ${id} approved`);
+    } else {
+      setCardRequests((prev) => prev.map((x) => (x.id === id ? { ...x, approvals: nextApprovals } : x)));
+    }
+  };
+  const rejectCardRequest: MockValue["rejectCardRequest"] = (id) =>
+    setCardRequests((prev) => prev.map((x) => (x.id === id && x.status === "pending_approval" ? { ...x, status: "rejected" } : x)));
   // 消费管控引擎生效：命中规则则拒付并记录原因，通过则扣款 + 计数
   const spendOnCard: MockValue["spendOnCard"] = ({ cardId, currency, merchant, amount, mcc, channel }) => {
     const card = cardsRef.current.find((c) => c.id === cardId);
@@ -729,6 +765,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setSettleQuota({ ...settleQuotaSeed });
     setSettleBatches(settleBatchesSeed);
     setCards(initialCards);
+    setCardRequests(cardRequestsSeed);
     setCardTxns({});
     setAcqTxns(acqTxnsSeed);
     setBatches(batchesSeed);
@@ -856,6 +893,11 @@ export function MockProvider({ children }: { children: ReactNode }) {
         cardTxns,
         issueCard,
         activateCard,
+        cardholders,
+        cardRequests,
+        requestCard,
+        approveCardRequest,
+        rejectCardRequest,
         spendOnCard,
         updateCardControls,
         topupCard,
