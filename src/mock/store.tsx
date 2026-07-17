@@ -69,6 +69,8 @@ import {
   type PayoutAccount,
   settlementConfigSeed,
   type SettlementConfig,
+  spendProgramsSeed,
+  type SpendProgram,
 } from "./more";
 import { cards as initialCards, notifications as notificationsSeed, type Card, type CardControls, type CardChannel, type CardAutoTopup } from "./data";
 
@@ -194,6 +196,10 @@ type MockValue = {
   setAutoTopup: (cardId: string, patch: Partial<CardAutoTopup>) => void;
   setCardFrozen: (cardId: string, frozen: boolean) => void;
   terminateCard: (cardId: string) => void;
+  // 消费方案模板 + 批量发卡
+  spendPrograms: SpendProgram[];
+  createProgram: (p: Omit<SpendProgram, "id">) => void;
+  bulkIssue: (p: { programId: string; holderNames: string[] }) => void;
   // 收单闭环
   acqTxns: AcqTxn[];
   batches: SettlementBatch[];
@@ -375,6 +381,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [cardholders] = useState<Cardholder[]>(cardholdersSeed);
   const [cardRequests, setCardRequests] = useState<CardRequest[]>(cardRequestsSeed);
   const [cardTxns, setCardTxns] = useState<Record<string, CardTxn[]>>({});
+  const [spendPrograms, setSpendPrograms] = useState<SpendProgram[]>(spendProgramsSeed);
   const [acqTxns, setAcqTxns] = useState<AcqTxn[]>(acqTxnsSeed);
   const [batches, setBatches] = useState<SettlementBatch[]>(batchesSeed);
   const [payoutRecords, setPayoutRecords] = useState<PayoutRecord[]>(payoutRecordsSeed);
@@ -418,6 +425,10 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const cardRequestsRef = useRef(cardRequests);
   cardRequestsRef.current = cardRequests;
   const reqSeqRef = useRef(4410);
+  const spendProgramsRef = useRef(spendPrograms);
+  spendProgramsRef.current = spendPrograms;
+  const programSeqRef = useRef(spendProgramsSeed.length);
+  const bulkCardSeqRef = useRef(6000);
   const batchesRef = useRef(batches);
   batchesRef.current = batches;
   const acqTxnsRef = useRef(acqTxns);
@@ -705,6 +716,40 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const setCardFrozen: MockValue["setCardFrozen"] = (cardId, frozen) =>
     setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, status: frozen ? "frozen" : "active" } : c)));
   const terminateCard: MockValue["terminateCard"] = (cardId) => setCards((prev) => prev.filter((c) => c.id !== cardId));
+
+  // ── 消费方案模板 + 批量发卡：预设 MCC/限额策略；批量派发时错峰逐张开卡，再把方案套到新卡管控上 ──
+  const createProgram: MockValue["createProgram"] = (p) => {
+    const id = `SP-${String(++programSeqRef.current).padStart(2, "0")}`;
+    setSpendPrograms((prev) => [...prev, { id, ...p }]);
+  };
+  const bulkIssue: MockValue["bulkIssue"] = ({ programId, holderNames }) => {
+    const program = spendProgramsRef.current.find((p) => p.id === programId);
+    if (!program) return;
+    const names = holderNames.map((n) => n.trim()).filter(Boolean);
+    names.forEach((holderName, i) => {
+      const last4 = String(++bulkCardSeqRef.current).padStart(4, "0");
+      window.setTimeout(() => {
+        const id = issueCard({
+          name: `${program.name} · ${holderName}`,
+          type: "virtual",
+          brand: "Visa",
+          last4,
+          currency: program.fundingCurrency,
+          limit: program.controls.monthlyLimit,
+        });
+        updateCardControls(id, {
+          mccMode: program.controls.mccMode,
+          mccList: program.controls.mccList,
+          perTxnLimit: program.controls.perTxnLimit,
+          dailyLimit: program.controls.dailyLimit,
+          monthlyLimit: program.controls.monthlyLimit,
+          ...(program.controls.channels
+            ? { channels: { online: true, atm: false, pos: true, crossBorder: true, ...program.controls.channels } }
+            : {}),
+        });
+      }, i * 500);
+    });
+  };
 
   // ── 收单闭环 ──
   // 预授权 → 部分/多次请款：capturedAmount 累加，未满额为 partially_captured，满额转 captured
@@ -996,6 +1041,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setCards(initialCards);
     setCardRequests(cardRequestsSeed);
     setCardTxns({});
+    setSpendPrograms(spendProgramsSeed);
     setAcqTxns(acqTxnsSeed);
     setBatches(batchesSeed);
     setPayoutRecords(payoutRecordsSeed);
@@ -1152,6 +1198,9 @@ export function MockProvider({ children }: { children: ReactNode }) {
         setAutoTopup,
         setCardFrozen,
         terminateCard,
+        spendPrograms,
+        createProgram,
+        bulkIssue,
         acqTxns,
         batches,
         payoutRecords,

@@ -1,4 +1,4 @@
-import type { PayStatus } from "./data";
+import type { PayStatus, CardChannel } from "./data";
 
 // 多币种余额（示例）
 export type Balance = { currency: string; available: number; pending: number; usdEq: number; reserved?: number };
@@ -603,4 +603,60 @@ export type Adjustment = {
 export const adjustmentsSeed: Adjustment[] = [
   { id: "ADJ-9001", type: "refund", amount: 220, originalOrder: "OD-87905", deductedFromBatch: "PO-20260718" },
   { id: "ADJ-9002", type: "chargeback", amount: 640, originalOrder: "OD-87890", deductedFromBatch: "PO-20260723" },
+];
+
+// ── 发卡：消费方案模板 + 批量发卡（P2-F9）：预设 MCC / 限额策略，一键批量派发给多个持卡人 ──
+export type SpendProgram = {
+  id: string;
+  name: string;
+  controls: {
+    channels?: Partial<Record<CardChannel, boolean>>;
+    mccMode: "allow" | "deny";
+    mccList: string[];
+    perTxnLimit: number;
+    dailyLimit: number;
+    monthlyLimit: number;
+  };
+  fundingCurrency: string;
+};
+export const spendProgramsSeed: SpendProgram[] = [
+  {
+    id: "SP-01",
+    name: "市场投放方案",
+    fundingCurrency: "USD",
+    controls: {
+      channels: { online: true, atm: false, pos: false, crossBorder: true },
+      mccMode: "allow",
+      mccList: ["5967", "4899", "5734"],
+      perTxnLimit: 5000,
+      dailyLimit: 8000,
+      monthlyLimit: 20000,
+    },
+  },
+  {
+    id: "SP-02",
+    name: "差旅方案",
+    fundingCurrency: "EUR",
+    controls: {
+      channels: { online: true, atm: true, pos: true, crossBorder: true },
+      mccMode: "allow",
+      mccList: ["4511", "7011", "5812", "5541"],
+      perTxnLimit: 3000,
+      dailyLimit: 5000,
+      monthlyLimit: 10000,
+    },
+  },
+  {
+    id: "SP-03",
+    name: "供应商方案",
+    fundingCurrency: "USD",
+    controls: {
+      channels: { online: true, atm: false, pos: false, crossBorder: true },
+      mccMode: "deny",
+      mccList: [],
+      perTxnLimit: 20000,
+      dailyLimit: 30000,
+      monthlyLimit: 50000,
+    },
+  },
 ];

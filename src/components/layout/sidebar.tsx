@@ -24,6 +24,7 @@ import {
   Building2,
   Inbox,
   Waypoints,
+  LayoutTemplate,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -63,6 +64,7 @@ const GROUPS: Group[] = [
     items: [
       { to: "/app/cards", icon: CreditCard, key: "nav.cards" },
       { to: "/app/cardholders", icon: Users, key: "nav.cardholders" },
+      { to: "/app/spend-programs", icon: LayoutTemplate, key: "nav.spendPrograms" },
     ],
   },
   {

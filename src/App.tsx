@@ -21,6 +21,7 @@ import RiskPage from "@/pages/console/risk";
 import DisputesPage from "@/pages/console/disputes";
 import CardsPage from "@/pages/console/cards";
 import CardholdersPage from "@/pages/console/cardholders";
+import SpendProgramsPage from "@/pages/console/spend-programs";
 import ReportsPage from "@/pages/console/reports";
 import StatementsPage from "@/pages/console/statements";
 import ReconciliationPage from "@/pages/console/reconciliation";
@@ -54,6 +55,7 @@ export function App() {
         <Route path="disputes" element={<DisputesPage />} />
         <Route path="cards" element={<CardsPage />} />
         <Route path="cardholders" element={<CardholdersPage />} />
+        <Route path="spend-programs" element={<SpendProgramsPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="statements" element={<StatementsPage />} />
         <Route path="reconciliation" element={<ReconciliationPage />} />
