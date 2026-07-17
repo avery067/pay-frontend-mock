@@ -50,6 +50,10 @@ import {
   riskRulesSeed,
   type RiskRule,
   riskProfileSeed,
+  alertsSeed,
+  type FraudAlert,
+  autoRulesSeed,
+  type AutoRule,
   paymentMethodsSeed,
   type PaymentMethod,
   type MethodKind,
@@ -213,6 +217,13 @@ type MockValue = {
   disputeRatio: number;
   riskThreshold: number;
   riskTier: "normal" | "watch" | "restricted";
+  // 事前预警与自动止损（RDR / Ethoca / Fraud Alert + 自动退款规则；不计入拒付率）
+  fraudAlerts: FraudAlert[];
+  autoRules: AutoRule[];
+  resolveAlert: (id: string, action: "refund" | "ignore") => void;
+  toggleAutoRule: (id: string) => void;
+  alertsIntercepted: number;
+  alertsAvoidedRatio: number;
   voidTxn: (order: string) => void;
   refundTxn: (p: { order: string; amount: number }) => void;
   advanceBatch: (batchId: string) => void;
@@ -298,6 +309,11 @@ export function previewApprovalRate(market: string, mode: ChannelMode, tokensOn:
   const base = CHANNEL_MODE_BASE[mode] + (CHANNEL_MARKET_FLAVOR[market] ?? 0) + (tokensOn ? 3.3 : 0);
   return Math.round(base * 10) / 10;
 }
+
+// 事前预警可命中的交易状态：资金动作已发生但尚未进入终态（撤销 / 已退款 / 争议中 / 失败 / 审核中的交易不生成预警）
+const ALERT_ELIGIBLE_STATUS = new Set<AcqTxn["status"]>([
+  "authorized", "partially_captured", "captured", "in_batch", "settling", "paid_out", "credited",
+]);
 
 function creditCny(bs: Balance[], rmb: number): Balance[] {
   const usdPerCny = getRate("CNY", "USD");
@@ -391,6 +407,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [fxOrders, setFxOrders] = useState<FxOrder[]>(fxOrdersSeed);
   const [fxForwards, setFxForwards] = useState<FxForward[]>(fxForwardsSeed);
   const [riskRules, setRiskRules] = useState<RiskRule[]>(riskRulesSeed);
+  const [fraudAlerts, setFraudAlerts] = useState<FraudAlert[]>(alertsSeed);
+  const [autoRules, setAutoRules] = useState<AutoRule[]>(autoRulesSeed);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(paymentMethodsSeed);
   const [receivingAccounts, setReceivingAccounts] = useState<ReceivingAccount[]>(receivingAccountsSeed);
   const [pricingModel, setPricingModelState] = useState<PricingModel>(pricingPlanSeed.model);
@@ -422,6 +440,10 @@ export function MockProvider({ children }: { children: ReactNode }) {
   batchesRef.current = batches;
   const acqTxnsRef = useRef(acqTxns);
   acqTxnsRef.current = acqTxns;
+  const fraudAlertsRef = useRef(fraudAlerts);
+  fraudAlertsRef.current = fraudAlerts;
+  const autoRulesRef = useRef(autoRules);
+  autoRulesRef.current = autoRules;
   const reservesRef = useRef(reserves);
   reservesRef.current = reserves;
   const disputesRef = useRef(disputes);
@@ -443,6 +465,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const ledgerSeqRef = useRef(90231);
   const linkSeqRef = useRef(3021);
   const acqSeqRef = useRef(88231);
+  const alertSeqRef = useRef(6601);
   const rcpSeqRef = useRef(100);
   const feeRulesRef = useRef(feeRules);
   feeRulesRef.current = feeRules;
@@ -768,6 +791,21 @@ export function MockProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // ── 事前预警与自动止损：RDR / Ethoca / 卡组织 Fraud Alert 抢在拒付形成前到达，主动退款或命中自动规则均可止损，且不计入拒付率 ──
+  const resolveAlert: MockValue["resolveAlert"] = (id, action) => {
+    const alert = fraudAlertsRef.current.find((a) => a.id === id);
+    if (!alert || alert.status !== "open") return;
+    if (action === "refund") {
+      setFraudAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, status: "merchant_refunded" } : a)));
+      refundTxn({ order: alert.order, amount: alert.amount });
+      pushNotif("success", `预警 ${id} 已主动退款止损`, `Alert ${id} refunded to stop loss`);
+    } else {
+      setFraudAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, status: "ignored" } : a)));
+    }
+  };
+  const toggleAutoRule: MockValue["toggleAutoRule"] = (id) =>
+    setAutoRules((prev) => prev.map((r) => (r.id === id ? { ...r, on: !r.on } : r)));
+
   const finishBatch = (b: SettlementBatch, method: "standard" | "instant", fee: number) => {
     const creditAmt = b.net - fee;
     setBatches((prev) => prev.map((x) => (x.id === b.id ? { ...x, status: "credited", instant: method === "instant" ? true : x.instant } : x)));
@@ -1011,6 +1049,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setFxOrders(fxOrdersSeed);
     setFxForwards(fxForwardsSeed);
     setRiskRules(riskRulesSeed);
+    setFraudAlerts(alertsSeed);
+    setAutoRules(autoRulesSeed);
     setPaymentMethods(paymentMethodsSeed);
     setReceivingAccounts(receivingAccountsSeed);
     setPricingModelState(pricingPlanSeed.model);
@@ -1095,6 +1135,30 @@ export function MockProvider({ children }: { children: ReactNode }) {
           sweepNow(target.currency, true);
         }
       }
+
+      // 事前预警到达（小概率）：RDR / Ethoca / Fraud Alert 抢在拒付前到达；命中已启用的自动止损规则则直接自动退款
+      if (Math.random() < 0.25) {
+        const alertedOrders = new Set(fraudAlertsRef.current.map((a) => a.order));
+        const candidates = acqTxnsRef.current.filter((t) => !alertedOrders.has(t.order) && ALERT_ELIGIBLE_STATUS.has(t.status));
+        if (candidates.length) {
+          const txn = candidates[Math.floor(Math.random() * candidates.length)];
+          const sources: FraudAlert["source"][] = ["rdr", "ethoca", "fraud_alert"];
+          const reasons: FraudAlert["reason"][] = ["cardholder_fraud", "unauthorized", "subscription_cancelled", "duplicate"];
+          const source = sources[Math.floor(Math.random() * sources.length)];
+          const reason = reasons[Math.floor(Math.random() * reasons.length)];
+          const amount = Math.max(20, Math.round(txn.gross * (0.3 + Math.random() * 0.7) * 100) / 100);
+          const matchedRule = autoRulesRef.current.find((r) => r.on && r.sources.includes(source) && amount < r.maxAmount);
+          const id = `AL-${++alertSeqRef.current}`;
+          const alert: FraudAlert = { id, order: txn.order, source, reason, amount, currency: txn.currency, deadline: "07-24", status: matchedRule ? "auto_refunded" : "open" };
+          setFraudAlerts((prev) => [alert, ...prev]);
+          if (matchedRule) {
+            refundTxn({ order: txn.order, amount });
+            pushNotif("warning", `预警 ${id} 命中自动止损规则，已自动退款`, `Alert ${id} matched an auto-refund rule and was refunded`);
+          } else {
+            pushNotif("warning", `收到新的事前预警 ${id}（${txn.order}）`, `New pre-emptive alert ${id} for ${txn.order}`);
+          }
+        }
+      }
     }, 2600);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1111,6 +1175,9 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const disputeRatio = Math.round((riskProfileSeed.disputeRatio + disputes.filter((d) => d.status === "lost").length * 0.06) * 100) / 100;
   const riskThreshold = riskProfileSeed.threshold;
   const riskTier: MockValue["riskTier"] = disputeRatio >= riskThreshold ? "restricted" : disputeRatio >= riskThreshold * 0.85 ? "watch" : "normal";
+  // 预警拦截统计：自动 / 主动退款均视为成功止损；避免拒付率与 disputeRatio 采用同一口径（每笔 0.06pt）估算，仅用于展示，不回写 disputeRatio
+  const alertsIntercepted = fraudAlerts.filter((a) => a.status === "auto_refunded" || a.status === "merchant_refunded").length;
+  const alertsAvoidedRatio = Math.round(alertsIntercepted * 0.06 * 100) / 100;
 
   return (
     <MockCtx.Provider
@@ -1169,6 +1236,12 @@ export function MockProvider({ children }: { children: ReactNode }) {
         disputeRatio,
         riskThreshold,
         riskTier,
+        fraudAlerts,
+        autoRules,
+        resolveAlert,
+        toggleAutoRule,
+        alertsIntercepted,
+        alertsAvoidedRatio,
         voidTxn,
         refundTxn,
         advanceBatch,
