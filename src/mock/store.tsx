@@ -109,6 +109,8 @@ export type CardTxn = {
   channel?: CardChannel;
   status: "authorized" | "cleared" | "declined";
   reason?: string;
+  /** JIT 待决策：开启中继实时授权的卡，其授权先挂起，tick 不自动清算，直到 resolveAuthorization 落地（发卡 P1-F6） */
+  pendingJit?: boolean;
   /** 中继实时授权（JIT）决策耗时与决策方：商户手动 or 超时兜底（发卡 P1-F6） */
   jit?: { decisionMs: number; decidedBy: "merchant" | "fallback" };
 };
@@ -760,13 +762,14 @@ export function MockProvider({ children }: { children: ReactNode }) {
       setBalances((bs) => bs.map((b) => (b.currency === currency ? { ...b, available: Math.max(0, b.available - topupAmt), usdEq: Math.max(0, b.usdEq - topupAmt * usdPer) } : b)));
     }
     setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, cardBalance: Math.round((c.cardBalance + topupAmt - amount) * 100) / 100, spent: c.spent + amount, spentToday: c.spentToday + amount, monthCount: c.monthCount + 1 } : c)));
-    // 两段式：先授权(预占额度)，由 tick 自动清算入账
-    setCardTxns((prev) => ({ ...prev, [cardId]: [{ id: tid, merchant, amount, mcc, channel, status: "authorized" }, ...(prev[cardId] || [])] }));
+    // 两段式：先授权(预占额度)，由 tick 自动清算入账。开启 JIT 的卡则挂起(pendingJit)，
+    // tick 不自动清算，等待商户实时决策 / 超时兜底经 resolveAuthorization 落地
+    setCardTxns((prev) => ({ ...prev, [cardId]: [{ id: tid, merchant, amount, mcc, channel, status: "authorized", ...(card.jitEnabled ? { pendingJit: true } : {}) }, ...(prev[cardId] || [])] }));
     pushLedger({ type: "card", desc: merchant, dir: "out", amount, currency, status: "settled" });
     return { ...check, txnId: tid };
   };
-  // 中继实时授权 JIT：商户在超时前决策（或超时按 jitFallback 兜底）后回填已授权卡交易（发卡 P1-F6）
-  // 批准→跳过等待直接清算（tick 会自然跳过非 authorized 记录）；拒绝→回滚授权时预占的卡内余额/计数，并记 jitDeclined 拒付原因
+  // 中继实时授权 JIT：商户在超时前决策（或超时按 jitFallback 兜底）后回填挂起的卡交易（发卡 P1-F6）
+  // 批准→解除挂起并直接清算；拒绝→回滚授权时预占的卡内余额/计数，并记 jitDeclined 拒付原因。落地即清除 pendingJit
   const resolveAuthorization: MockValue["resolveAuthorization"] = (cardId, txnId, decision, jit) => {
     const txn = cardTxnsRef.current[cardId]?.find((x) => x.id === txnId && x.status === "authorized");
     if (!txn) return;
@@ -790,8 +793,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
       [cardId]: (prev[cardId] || []).map((x) =>
         x.id === txnId && x.status === "authorized"
           ? decision === "approve"
-            ? { ...x, status: "cleared" as const, ...(jit ? { jit } : {}) }
-            : { ...x, status: "declined" as const, reason: "jitDeclined", ...(jit ? { jit } : {}) }
+            ? { ...x, status: "cleared" as const, pendingJit: false, ...(jit ? { jit } : {}) }
+            : { ...x, status: "declined" as const, reason: "jitDeclined", pendingJit: false, ...(jit ? { jit } : {}) }
           : x,
       ),
     }));
@@ -1262,17 +1265,17 @@ export function MockProvider({ children }: { children: ReactNode }) {
       const mv = batchesRef.current.find((b) => b.status === "settling" || b.status === "paid_out");
       if (mv) advanceBatch(mv.id);
 
-      // 发卡两段式：已授权卡交易自动清算入账
+      // 发卡两段式：已授权卡交易自动清算入账。pendingJit（JIT 挂起）的授权跳过，等 resolveAuthorization 落地
       const ct = cardTxnsRef.current;
-      if (Object.values(ct).some((list) => list.some((x) => x.status === "authorized"))) {
+      if (Object.values(ct).some((list) => list.some((x) => x.status === "authorized" && !x.pendingJit))) {
         setCardTxns((prev) => {
           const next: Record<string, CardTxn[]> = {};
-          for (const k in prev) next[k] = prev[k].map((x) => (x.status === "authorized" ? { ...x, status: "cleared" } : x));
+          for (const k in prev) next[k] = prev[k].map((x) => (x.status === "authorized" && !x.pendingJit ? { ...x, status: "cleared" } : x));
           return next;
         });
         // 单次性卡：用后即焚——本次清算后立即冻结并打标，避免二次使用（发卡 P2-F10）
         const consumedIds = Object.keys(ct).filter((k) => {
-          if (!ct[k].some((x) => x.status === "authorized")) return false;
+          if (!ct[k].some((x) => x.status === "authorized" && !x.pendingJit)) return false;
           const card = cardsRef.current.find((c) => c.id === k);
           return !!card && card.type === "single_use" && card.status !== "frozen";
         });

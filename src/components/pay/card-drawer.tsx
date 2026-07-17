@@ -82,6 +82,10 @@ export function CardDrawer({
   } | null>(null);
   const [walletCodes, setWalletCodes] = useState<Record<string, string>>({});
   const jitTimerRef = useRef<{ tick?: number; timeout?: number }>({});
+  // 镜像最新 jit 供计时器 tick / 超时兜底回调读取（ref 恒等，闭包内 .current 恒为最新，
+  // 且避免在 setJit updater 里读 prev 时顺带调用 store setter）
+  const jitRef = useRef(jit);
+  jitRef.current = jit;
 
   useEffect(() => {
     if (card) {
@@ -127,16 +131,17 @@ export function CardDrawer({
     jitTimerRef.current = {};
   };
 
-  // JIT 决策落地：批准/拒绝/超时兜底统一走这里，仅更新组件本地倒计时状态，
-  // 交易层面的清算/拒付委托给 store 的 resolveAuthorization
+  // JIT 决策落地：批准/拒绝/超时兜底统一走这里。关键：store 的 resolveAuthorization 必须在
+  // setJit 的 updater 之外调用——updater 在渲染阶段执行，其内部触发 MockProvider 的 setState 会报
+  // “Cannot update a component while rendering a different component”。改为从 jitRef 读最新值做幂等判断，
+  // 先落 store 再更新本地倒计时状态（本函数只在按钮点击 / 计时器回调中触发，均在渲染之外）。
   const decideJit = (decision: "approve" | "decline", decidedBy: "merchant" | "fallback") => {
-    setJit((prev) => {
-      if (!prev || prev.result) return prev;
-      const decisionMs = Date.now() - prev.startedAt;
-      clearJitTimer();
-      resolveAuthorization(card.id, prev.txnId, decision, { decisionMs, decidedBy });
-      return { ...prev, remainingMs: 0, result: { decision, decidedBy, decisionMs } };
-    });
+    const cur = jitRef.current;
+    if (!cur || cur.result) return;
+    clearJitTimer();
+    const decisionMs = Date.now() - cur.startedAt;
+    resolveAuthorization(card.id, cur.txnId, decision, { decisionMs, decidedBy });
+    setJit((prev) => (prev && !prev.result ? { ...prev, remainingMs: 0, result: { decision, decidedBy, decisionMs } } : prev));
   };
 
   const openJit = (txnId: string, jitAmount: number, merchant: string) => {
