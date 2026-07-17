@@ -6,6 +6,7 @@ type Variant = "success" | "warning" | "danger" | "info";
 const MAP: Record<string, { variant: Variant; key: string }> = {
   settled: { variant: "success", key: "status.settled" },
   processing: { variant: "warning", key: "status.processing" },
+  need_info: { variant: "warning", key: "stl.needInfo" },
   pending: { variant: "info", key: "status.pending" },
   failed: { variant: "danger", key: "status.failed" },
   active: { variant: "success", key: "iss.active" },

@@ -33,7 +33,7 @@ export function SettleRecordDrawer({
 }) {
   const { t } = useI18n();
   const { toast } = useToast();
-  const { records, advance, retrySettlement } = useMock();
+  const { records, advance, retrySettlement, submitRfi } = useMock();
   const rec = openRef ? records.find((r) => r.ref === openRef) ?? null : null;
 
   return (
@@ -73,6 +73,25 @@ export function SettleRecordDrawer({
                   {t("stl.failHint")}
                 </p>
               )}
+              {rec.status === "need_info" && rec.rfi && (
+                <div className="space-y-3 rounded-lg bg-warning/10 p-3">
+                  <p className="flex items-start gap-2 text-xs text-warning">
+                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                    {t("stl.rfiTitle")}：{rec.rfi.reason}
+                  </p>
+                  <div>
+                    <div className="mb-1.5 text-xs font-medium">{t("stl.rfiDocs")}</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {rec.rfi.docs.map((d) => (
+                        <span key={d} className="rounded-md border border-dashed border-warning/60 px-2 py-1 text-xs text-foreground">{d}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => toast(t("stl.rfiUpload"))} className="w-full rounded-lg border border-dashed border-border py-2 text-xs text-muted-foreground transition hover:bg-muted">
+                    {t("stl.rfiUpload")}
+                  </button>
+                </div>
+              )}
             </SheetBody>
 
             <SheetFooter>
@@ -84,6 +103,10 @@ export function SettleRecordDrawer({
                 <Button className="w-full" onClick={() => { retrySettlement(rec.ref); toast(t("stl.retryDone")); }}>
                   <RotateCcw />
                   {t("stl.retry")}
+                </Button>
+              ) : rec.status === "need_info" ? (
+                <Button className="w-full" onClick={() => { submitRfi(rec.ref); toast(t("stl.rfiDone")); }}>
+                  {t("stl.rfiSubmit")}
                 </Button>
               ) : (
                 <Button variant="outline" className="w-full">

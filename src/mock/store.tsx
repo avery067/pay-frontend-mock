@@ -11,6 +11,7 @@ import {
   balances as initialBalances,
   settleFunds as initialFunds,
   settleRecords as seedRecordsRaw,
+  settleQuota as settleQuotaSeed,
   acqTxnsSeed,
   batchesSeed,
   payoutRecordsSeed,
@@ -52,8 +53,9 @@ export type SettleRec = {
   rmb: number;
   rate: number;
   stage: SettleStage;
-  status: "processing" | "settled" | "failed";
+  status: "processing" | "settled" | "failed" | "need_info";
   declared: boolean;
+  rfi?: { reason: string; docs: string[] };
 };
 
 export type CardTxn = {
@@ -88,19 +90,32 @@ function evaluateControls(card: Card, p: { amount: number; mcc: string; channel:
 /** 通知：loop 事件（到账 / 打款 / 争议 / 开卡）会实时推入 */
 export type Notif = { id: string; type: string; zh: string; en: string; time: string; live?: boolean; unread?: boolean };
 
-const seedRecords: SettleRec[] = seedRecordsRaw.map((r) => {
-  const failed = r.status === "failed";
-  return {
-    ref: r.ref,
-    from: r.from,
-    amount: r.amount,
-    rmb: r.rmb,
-    rate: r.rate,
-    stage: (failed ? 1 : 4) as SettleStage,
-    status: failed ? ("failed" as const) : ("settled" as const),
-    declared: !failed,
-  };
-});
+const seedRecords: SettleRec[] = [
+  ...seedRecordsRaw.map((r) => {
+    const failed = r.status === "failed";
+    return {
+      ref: r.ref,
+      from: r.from,
+      amount: r.amount,
+      rmb: r.rmb,
+      rate: r.rate,
+      stage: (failed ? 1 : 4) as SettleStage,
+      status: failed ? ("failed" as const) : ("settled" as const),
+      declared: !failed,
+    };
+  }),
+  {
+    ref: "STL-20260715-0018",
+    from: "USD",
+    amount: 120000,
+    rmb: 862584,
+    rate: 7.182,
+    stage: 1,
+    status: "need_info",
+    declared: false,
+    rfi: { reason: "大额结汇触发贸易背景复核，请补充单据", docs: ["提单 B/L", "报关单", "外汇合同"] },
+  },
+];
 
 const seedNotifs: Notif[] = notificationsSeed.map((n) => ({ ...n }));
 
@@ -113,6 +128,8 @@ type MockValue = {
   initiateSettlement: (params: { fundId?: string; from: string; amount: number; rate?: number }) => string;
   advance: (ref: string) => void;
   retrySettlement: (ref: string) => void;
+  submitRfi: (ref: string) => void;
+  settleQuota: { usedRmb: number; totalRmb: number };
   // 实时行情 + 限价结汇委托
   spotRates: Record<string, number>;
   fxOrders: FxOrder[];
@@ -228,6 +245,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [balances, setBalances] = useState<Balance[]>(initialBalances);
   const [funds, setFunds] = useState<SettleFund[]>(initialFunds);
   const [records, setRecords] = useState<SettleRec[]>(seedRecords);
+  const [settleQuota, setSettleQuota] = useState<{ usedRmb: number; totalRmb: number }>({ ...settleQuotaSeed });
   const [cards, setCards] = useState<Card[]>(initialCards);
   const [cardTxns, setCardTxns] = useState<Record<string, CardTxn[]>>({});
   const [acqTxns, setAcqTxns] = useState<AcqTxn[]>(acqTxnsSeed);
@@ -301,8 +319,12 @@ export function MockProvider({ children }: { children: ReactNode }) {
     const rec: SettleRec = { ref, fundId, from, amount, rmb, rate, stage: 0, status: "processing", declared: false };
     setRecords((prev) => [rec, ...prev]);
     if (fundId) setFunds((prev) => prev.filter((f) => f.id !== fundId));
+    setSettleQuota((q) => ({ ...q, usedRmb: Math.round((q.usedRmb + rmb) * 100) / 100 }));
     return ref;
   };
+  // 合规问询补件：need_info → 续跑结汇闭环
+  const submitRfi: MockValue["submitRfi"] = (ref) =>
+    setRecords((prev) => prev.map((x) => (x.ref === ref && x.status === "need_info" ? { ...x, status: "processing" } : x)));
   const advance: MockValue["advance"] = (ref) => {
     const r = recordsRef.current.find((x) => x.ref === ref);
     if (!r || r.status !== "processing") return;
@@ -621,6 +643,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setBalances(initialBalances);
     setFunds(initialFunds);
     setRecords(seedRecords);
+    setSettleQuota({ ...settleQuotaSeed });
     setCards(initialCards);
     setCardTxns({});
     setAcqTxns(acqTxnsSeed);
@@ -731,6 +754,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
         initiateSettlement,
         advance,
         retrySettlement,
+        submitRfi,
+        settleQuota,
         spotRates,
         fxOrders,
         placeFxOrder,

@@ -4,7 +4,6 @@ import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { formatAmount, formatMoney } from "@/lib/format";
 import { exportCsv } from "@/lib/export-csv";
-import { settleQuota } from "@/mock/more";
 import { useMock } from "@/mock/store";
 import { usePageLoading } from "@/hooks/use-page-loading";
 import { LoadingSkeleton } from "@/components/console/loading-skeleton";
@@ -33,10 +32,11 @@ const STEP_KEYS = [
 export default function SettlementPage() {
   const { t } = useI18n();
   const { toast } = useToast();
-  const { funds, records, pendingUsd, retrySettlement, fxOrders, cancelFxOrder, spotRates, fxForwards, drawForward, terminateForward } = useMock();
+  const { funds, records, pendingUsd, retrySettlement, fxOrders, cancelFxOrder, spotRates, fxForwards, drawForward, terminateForward, settleQuota } = useMock();
   const [openRef, setOpenRef] = useState<string | null>(null);
   const [reconView, setReconView] = useState<"orig" | "settle">("orig");
   const quotaPct = Math.round((settleQuota.usedRmb / settleQuota.totalRmb) * 100);
+  const quotaTone = quotaPct >= 100 ? "bg-danger" : quotaPct >= 90 ? "bg-warning" : "bg-brand";
   const loading = usePageLoading();
 
   // 对账（纯派生）：毛额 = 原币金额 × 成交汇率，点差 = 毛额 − 结算到手
@@ -100,8 +100,9 @@ export default function SettlementPage() {
               <span className="text-muted-foreground"> / {formatAmount(settleQuota.totalRmb, { min: 0, max: 0 })}</span>
             </div>
             <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-secondary">
-              <div className="h-full rounded-full bg-brand" style={{ width: `${quotaPct}%` }} />
+              <div className={cn("h-full rounded-full transition-[width] duration-500", quotaTone)} style={{ width: `${Math.min(100, quotaPct)}%` }} />
             </div>
+            {quotaPct >= 90 && <div className="mt-1.5 text-xs text-warning">{t("stl.quotaWarn")}</div>}
           </CardContent>
         </Card>
       </div>
