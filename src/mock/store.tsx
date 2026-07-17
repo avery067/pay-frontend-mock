@@ -144,6 +144,7 @@ type MockValue = {
   cards: Card[];
   cardTxns: Record<string, CardTxn[]>;
   issueCard: (p: { name: string; type: "virtual" | "physical"; brand: string; last4: string; currency: string; limit: number }) => string;
+  activateCard: (id: string) => void;
   spendOnCard: (p: { cardId: string; currency: string; merchant: string; amount: number; mcc: string; channel: CardChannel }) => SpendCheck;
   updateCardControls: (cardId: string, patch: Partial<CardControls>) => void;
   topupCard: (cardId: string, amount: number) => void;
@@ -380,6 +381,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   // ── 发卡 ──
   const issueCard: MockValue["issueCard"] = (p) => {
     const id = `cx${++cardSeqRef.current}`;
+    const isPhysical = p.type === "physical";
     const card: Card = {
       id,
       ...p,
@@ -389,6 +391,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
       monthCount: 0,
       cardBalance: Math.round(p.limit / 4),
       autoTopup: { on: true, threshold: Math.round(p.limit / 10), target: Math.round(p.limit / 4) },
+      fulfillment: isPhysical ? { stage: "personalization", eta: "3-5 个工作日" } : undefined,
       controls: {
         channels: { online: true, atm: false, pos: true, crossBorder: true },
         mccMode: "deny",
@@ -400,11 +403,25 @@ export function MockProvider({ children }: { children: ReactNode }) {
       },
     };
     setCards((prev) => [card, ...prev]);
-    window.setTimeout(() => {
-      setCards((prev) => prev.map((c) => (c.id === id ? { ...c, status: "active" } : c)));
-      pushNotif("success", `${p.name} 开卡成功`, `Card “${p.name}” issued`);
-    }, 4200);
+    if (isPhysical) {
+      // 实体卡制卡履约链：制卡 → 生产 → 寄出 → 待激活
+      window.setTimeout(() => setCards((prev) => prev.map((c) => (c.id === id ? { ...c, fulfillment: { stage: "manufacturing", eta: "3-5 个工作日" } } : c))), 2600);
+      window.setTimeout(() => setCards((prev) => prev.map((c) => (c.id === id ? { ...c, fulfillment: { stage: "shipped", eta: "3-5 个工作日" } } : c))), 5200);
+      window.setTimeout(() => {
+        setCards((prev) => prev.map((c) => (c.id === id ? { ...c, status: "inactive" } : c)));
+        pushNotif("success", `${p.name} 已寄出，待激活`, `Card “${p.name}” shipped — activate on arrival`);
+      }, 7800);
+    } else {
+      window.setTimeout(() => {
+        setCards((prev) => prev.map((c) => (c.id === id ? { ...c, status: "active" } : c)));
+        pushNotif("success", `${p.name} 开卡成功`, `Card “${p.name}” issued`);
+      }, 4200);
+    }
     return id;
+  };
+  const activateCard: MockValue["activateCard"] = (id) => {
+    setCards((prev) => prev.map((c) => (c.id === id && c.status === "inactive" ? { ...c, status: "active", fulfillment: undefined } : c)));
+    pushNotif("success", `实体卡 ${id} 已激活`, `Card ${id} activated`);
   };
   // 消费管控引擎生效：命中规则则拒付并记录原因，通过则扣款 + 计数
   const spendOnCard: MockValue["spendOnCard"] = ({ cardId, currency, merchant, amount, mcc, channel }) => {
@@ -784,6 +801,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
         cards,
         cardTxns,
         issueCard,
+        activateCard,
         spendOnCard,
         updateCardControls,
         topupCard,

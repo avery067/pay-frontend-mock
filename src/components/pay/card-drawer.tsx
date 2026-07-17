@@ -47,7 +47,7 @@ export function CardDrawer({
 }) {
   const { t, lang } = useI18n();
   const { toast } = useToast();
-  const { cards, cardTxns, spendOnCard, updateCardControls, topupCard, setAutoTopup, setCardFrozen, terminateCard } = useMock();
+  const { cards, cardTxns, spendOnCard, updateCardControls, topupCard, setAutoTopup, activateCard, setCardFrozen, terminateCard } = useMock();
   const card = cardId ? cards.find((c) => c.id === cardId) ?? null : null;
 
   const [amount, setAmount] = useState(128.4);
@@ -74,7 +74,10 @@ export function CardDrawer({
   const c = card.controls;
   const frozen = card.status === "frozen";
   const issuing = card.status === "issuing";
-  const editable = !issuing;
+  const inactive = card.status === "inactive";
+  const editable = !issuing && !inactive;
+  const FULFILL = ["personalization", "manufacturing", "shipped"] as const;
+  const FULFILL_KEY: Record<string, string> = { personalization: "iss.fPersonalization", manufacturing: "iss.fManufacturing", shipped: "iss.fShipped" };
   const txns = cardTxns[card.id] || [];
   const mccName = (code: string) => {
     const m = MCC_CATEGORIES.find((x) => x.code === code);
@@ -105,6 +108,33 @@ export function CardDrawer({
 
         <SheetBody className="space-y-6">
           <CardVisual name={card.name} brand={card.brand} last4={card.last4} currency={card.currency} frozen={frozen} className="max-w-xs" />
+
+          {/* 实体卡制卡履约 + 激活 */}
+          {card.fulfillment && (
+            <div className="space-y-3 rounded-xl border border-border p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">{t("iss.fulfillment")}</span>
+                <span className="text-xs text-muted-foreground">{t("iss.eta")} {card.fulfillment.eta}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {FULFILL.map((s, i) => {
+                  const idx = inactive ? FULFILL.length : FULFILL.indexOf(card.fulfillment!.stage);
+                  return (
+                    <div key={s} className="flex flex-1 flex-col items-center gap-1">
+                      <div className={cn("h-1.5 w-full rounded-full", i <= idx ? "bg-brand" : "bg-secondary")} />
+                      <span className={cn("text-[10px]", i <= idx ? "text-foreground" : "text-muted-foreground")}>{t(FULFILL_KEY[s])}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {inactive && (
+                <>
+                  <p className="text-xs text-muted-foreground">{t("iss.activateHint")}</p>
+                  <Button className="w-full" onClick={() => { activateCard(card.id); toast(t("iss.activated")); }}>{t("iss.activate")}</Button>
+                </>
+              )}
+            </div>
+          )}
 
           {/* 限额与用量 */}
           <div className="space-y-3">

@@ -1,7 +1,8 @@
 // 全部为原型示例数据（SAMPLE）。金额/汇率取真实合理值以便演示，实体名一眼可辨为示例。
 
 export type PayStatus = "settled" | "processing" | "pending" | "failed";
-export type CardStatus = "active" | "frozen" | "issuing";
+export type CardStatus = "active" | "frozen" | "issuing" | "inactive";
+export type FulfillStage = "personalization" | "manufacturing" | "shipped";
 
 export type Settlement = {
   ref: string;
@@ -70,6 +71,8 @@ export type Card = {
   // 卡资金账户 + 自动充值
   cardBalance: number;
   autoTopup: CardAutoTopup;
+  // 实体卡制卡履约
+  fulfillment?: { stage: FulfillStage; eta: string };
 };
 
 const ctrl = (p: Partial<CardControls> & { channels?: Partial<Record<CardChannel, boolean>> } = {}): CardControls => ({
@@ -91,6 +94,8 @@ export const cards: Card[] = [
     controls: ctrl({ channels: { online: true, atm: true, pos: true, crossBorder: true }, mccMode: "allow", mccList: ["4511", "7011", "5812", "5541"], perTxnLimit: 3000, dailyLimit: 5000, monthlyLimit: 10000, velocity: { maxCount: 40, window: "month" } }) },
   { id: "c4", name: "供应商付款卡", type: "virtual", brand: "Mastercard", last4: "3390", currency: "USD", limit: 50000, spent: 41200, status: "active", spentToday: 5200, monthCount: 31, cardBalance: 15000, autoTopup: { on: false, threshold: 5000, target: 20000 },
     controls: ctrl({ channels: { online: true, atm: false, pos: false, crossBorder: true }, mccMode: "deny", mccList: [], perTxnLimit: 50000, dailyLimit: 50000, monthlyLimit: 50000, velocity: { maxCount: 80, window: "month" } }) },
+  { id: "c5", name: "运营团队实体卡", type: "physical", brand: "Visa", last4: "6602", currency: "USD", limit: 8000, spent: 0, status: "inactive", spentToday: 0, monthCount: 0, cardBalance: 2000, autoTopup: { on: true, threshold: 800, target: 2000 }, fulfillment: { stage: "shipped", eta: "3-5 个工作日" },
+    controls: ctrl({ channels: { online: true, atm: true, pos: true, crossBorder: true }, mccMode: "deny", mccList: [], perTxnLimit: 3000, dailyLimit: 5000, monthlyLimit: 8000, velocity: { maxCount: 40, window: "month" } }) },
 ];
 
 export type AcquiringTxn = {

@@ -12,6 +12,7 @@ const MAP: Record<string, { variant: Variant; key: string }> = {
   active: { variant: "success", key: "iss.active" },
   frozen: { variant: "info", key: "iss.frozen" },
   issuing: { variant: "warning", key: "iss.issuing" },
+  inactive: { variant: "warning", key: "iss.inactive" },
   authorized: { variant: "info", key: "status.authorized" },
   review: { variant: "warning", key: "risk.stReview" },
   partially_captured: { variant: "warning", key: "status.partiallyCaptured" },
