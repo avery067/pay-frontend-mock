@@ -85,7 +85,15 @@ export type SettleRec = {
   status: "processing" | "settled" | "failed" | "need_info";
   declared: boolean;
   rfi?: { reason: string; docs: string[] };
+  /** 国际收支申报单号：到账（stage 4）后生成（结汇 P2-F9） */
+  declareNo?: string;
 };
+
+/** 企业名录生命周期（结汇 P2-F9）：备案中 → 正常 → 关注（逐笔核查，周转变慢）→ 货物贸易 A 类（最优便利化） */
+export type DirectoryStatus = "filing" | "normal" | "watch" | "classA";
+/** KYC 分级收款额度（结汇 P2-F9）：基础认证 vs 加强认证（加验后年度收款额度显著提升） */
+export type CollectionTier = "basic" | "verified";
+export type CollectionLimit = { tier: CollectionTier; capUsd: number };
 
 export type CardTxn = {
   id: string;
@@ -119,6 +127,11 @@ function evaluateControls(card: Card, p: { amount: number; mcc: string; channel:
 /** 通知：loop 事件（到账 / 打款 / 争议 / 开卡）会实时推入 */
 export type Notif = { id: string; type: string; zh: string; en: string; time: string; live?: boolean; unread?: boolean };
 
+// 到账后生成国际收支申报单号：复用结汇单号的日期+序号，一一对应可追溯（结汇 P2-F9）
+function declareNoFor(ref: string): string {
+  return `BOP-${ref.replace(/^STL-/, "")}`;
+}
+
 const seedRecords: SettleRec[] = [
   ...seedRecordsRaw.map((r) => {
     const failed = r.status === "failed";
@@ -131,6 +144,7 @@ const seedRecords: SettleRec[] = [
       stage: (failed ? 1 : 4) as SettleStage,
       status: failed ? ("failed" as const) : ("settled" as const),
       declared: !failed,
+      declareNo: failed ? undefined : declareNoFor(r.ref),
     };
   }),
   {
@@ -159,6 +173,11 @@ type MockValue = {
   retrySettlement: (ref: string) => void;
   submitRfi: (ref: string) => void;
   settleQuota: { usedRmb: number; totalRmb: number };
+  // 企业名录生命周期 + KYC 分级收款额度（结汇 P2-F9）
+  directoryStatus: DirectoryStatus;
+  setDirectoryStatus: (status: DirectoryStatus) => void;
+  collectionLimit: CollectionLimit;
+  upgradeCollectionTier: () => void;
   // 批量结汇 + 多级审批
   settleBatches: SettleBatch[];
   createSettleBatch: (fundIds: string[]) => string;
@@ -370,6 +389,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [funds, setFunds] = useState<SettleFund[]>(initialFunds);
   const [records, setRecords] = useState<SettleRec[]>(seedRecords);
   const [settleQuota, setSettleQuota] = useState<{ usedRmb: number; totalRmb: number }>({ ...settleQuotaSeed });
+  const [directoryStatus, setDirectoryStatusState] = useState<DirectoryStatus>("classA");
+  const [collectionLimit, setCollectionLimit] = useState<CollectionLimit>({ tier: "basic", capUsd: 50000 });
   const [settleBatches, setSettleBatches] = useState<SettleBatch[]>(settleBatchesSeed);
   const [cards, setCards] = useState<Card[]>(initialCards);
   const [cardholders] = useState<Cardholder[]>(cardholdersSeed);
@@ -487,6 +508,14 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const submitRfi: MockValue["submitRfi"] = (ref) =>
     setRecords((prev) => prev.map((x) => (x.ref === ref && x.status === "need_info" ? { ...x, status: "processing" } : x)));
 
+  // 企业名录生命周期演示切换（结汇 P2-F9）：filing/normal/watch/classA，关注态结汇需逐笔核查拖慢周转
+  const setDirectoryStatus: MockValue["setDirectoryStatus"] = (status) => setDirectoryStatusState(status);
+  // KYC 加验升额：基础认证 → 加强认证，年度收款额度 5 万 → 50 万美元
+  const upgradeCollectionTier: MockValue["upgradeCollectionTier"] = () => {
+    setCollectionLimit((prev) => (prev.tier === "verified" ? prev : { tier: "verified", capUsd: 500000 }));
+    pushNotif("success", "KYC 加强认证已通过，收款额度提升至 USD 500,000（示例）", "Enhanced KYC verified — collection limit raised to USD 500,000 (sample)");
+  };
+
   // 批量结汇：选中资金合计超阈值(≈$50k)则走多级审批，否则直接批量结汇
   const BATCH_THRESHOLD = 50000;
   const execBatchFunds = (fundIds: string[]) => {
@@ -527,7 +556,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
     if (!r || r.status !== "processing") return;
     const stage = Math.min(4, r.stage + 1) as SettleStage;
     if (stage === 4) {
-      setRecords((prev) => prev.map((x) => (x.ref === ref ? { ...x, stage, status: "settled", declared: true } : x)));
+      const declareNo = declareNoFor(ref);
+      setRecords((prev) => prev.map((x) => (x.ref === ref ? { ...x, stage, status: "settled", declared: true, declareNo } : x)));
       setBalances((bs) => creditCny(bs, r.rmb));
       pushNotif("success", `结汇 ${ref} 已到账`, `Settlement ${ref} arrived`);
       pushLedger({ type: "convert", desc: `结汇 ${ref}`, dir: "in", amount: r.rmb, currency: "CNY", status: "settled" });
@@ -992,6 +1022,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setFunds(initialFunds);
     setRecords(seedRecords);
     setSettleQuota({ ...settleQuotaSeed });
+    setDirectoryStatusState("classA");
+    setCollectionLimit({ tier: "basic", capUsd: 50000 });
     setSettleBatches(settleBatchesSeed);
     setCards(initialCards);
     setCardRequests(cardRequestsSeed);
@@ -1034,7 +1066,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
           if (stage === 4) {
             creditRmb += r.rmb;
             settled.push({ ref: r.ref, rmb: r.rmb });
-            return { ...r, stage, status: "settled" as const, declared: true };
+            return { ...r, stage, status: "settled" as const, declared: true, declareNo: declareNoFor(r.ref) };
           }
           return { ...r, stage };
         });
@@ -1125,6 +1157,10 @@ export function MockProvider({ children }: { children: ReactNode }) {
         retrySettlement,
         submitRfi,
         settleQuota,
+        directoryStatus,
+        setDirectoryStatus,
+        collectionLimit,
+        upgradeCollectionTier,
         settleBatches,
         createSettleBatch,
         approveSettleBatch,
