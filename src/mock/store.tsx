@@ -31,6 +31,8 @@ import {
   type Recipient,
   fxOrdersSeed,
   type FxOrder,
+  fxForwardsSeed,
+  type FxForward,
   riskRulesSeed,
   type RiskRule,
   riskProfileSeed,
@@ -106,7 +108,7 @@ type MockValue = {
   records: SettleRec[];
   pendingUsd: number;
   totalUsdEq: number;
-  initiateSettlement: (params: { fundId?: string; from: string; amount: number }) => string;
+  initiateSettlement: (params: { fundId?: string; from: string; amount: number; rate?: number }) => string;
   advance: (ref: string) => void;
   retrySettlement: (ref: string) => void;
   // 实时行情 + 限价结汇委托
@@ -114,6 +116,11 @@ type MockValue = {
   fxOrders: FxOrder[];
   placeFxOrder: (p: { from: string; amount: number; targetRate: number; direction: "gte" | "lte" }) => void;
   cancelFxOrder: (id: string) => void;
+  // 远期结汇合约
+  fxForwards: FxForward[];
+  bookForward: (p: { from: string; notional: number; kind: "fixed" | "flexible"; termDays: number }) => void;
+  drawForward: (id: string, amount?: number) => void;
+  terminateForward: (id: string) => void;
   cards: Card[];
   cardTxns: Record<string, CardTxn[]>;
   issueCard: (p: { name: string; type: "virtual" | "physical"; brand: string; last4: string; currency: string; limit: number }) => string;
@@ -230,6 +237,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [recipientList, setRecipientList] = useState<Recipient[]>(recipientsSeed);
   const [spotRates, setSpotRates] = useState<Record<string, number>>({ ...RATES });
   const [fxOrders, setFxOrders] = useState<FxOrder[]>(fxOrdersSeed);
+  const [fxForwards, setFxForwards] = useState<FxForward[]>(fxForwardsSeed);
   const [riskRules, setRiskRules] = useState<RiskRule[]>(riskRulesSeed);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(paymentMethodsSeed);
 
@@ -253,7 +261,10 @@ export function MockProvider({ children }: { children: ReactNode }) {
   spotRatesRef.current = spotRates;
   const fxOrdersRef = useRef(fxOrders);
   fxOrdersRef.current = fxOrders;
+  const fxForwardsRef = useRef(fxForwards);
+  fxForwardsRef.current = fxForwards;
   const fxSeqRef = useRef(1042);
+  const fwdSeqRef = useRef(2041);
   const seqRef = useRef(43);
   const cardSeqRef = useRef(0);
   const poSeqRef = useRef(1);
@@ -278,10 +289,10 @@ export function MockProvider({ children }: { children: ReactNode }) {
   };
 
   // ── 结汇 ──
-  const initiateSettlement: MockValue["initiateSettlement"] = ({ fundId, from, amount }) => {
+  const initiateSettlement: MockValue["initiateSettlement"] = ({ fundId, from, amount, rate: rateOverride }) => {
     const seq = ++seqRef.current;
     const ref = `STL-20260716-${String(seq).padStart(4, "0")}`;
-    const rate = getRate(from, "CNY");
+    const rate = rateOverride ?? getRate(from, "CNY");
     const rmb = amount * rate * (1 - 0.0025);
     const rec: SettleRec = { ref, fundId, from, amount, rmb, rate, stage: 0, status: "processing", declared: false };
     setRecords((prev) => [rec, ...prev]);
@@ -315,6 +326,27 @@ export function MockProvider({ children }: { children: ReactNode }) {
   };
   const cancelFxOrder: MockValue["cancelFxOrder"] = (id) =>
     setFxOrders((prev) => prev.map((o) => (o.id === id && o.status === "watching" ? { ...o, status: "cancelled" } : o)));
+
+  // 远期结汇合约：签约锁定即期价；交割按锁定价结汇；flexible 可分批
+  const bookForward: MockValue["bookForward"] = ({ from, notional, kind, termDays }) => {
+    const id = `FWD-${++fwdSeqRef.current}`;
+    const lockedRate = Math.round(spotRate(spotRatesRef.current, from, "CNY") * (1 + termDays * 0.00015) * 10000) / 10000;
+    const fwd: FxForward = { id, from, notional, lockedRate, kind, termLabel: kind === "fixed" ? `T+${termDays} · 到期交割` : `择期窗口 ${termDays} 天`, drawn: 0, status: "active" };
+    setFxForwards((prev) => [fwd, ...prev]);
+  };
+  const drawForward: MockValue["drawForward"] = (id, amount) => {
+    const f = fxForwardsRef.current.find((x) => x.id === id);
+    if (!f || f.status === "settled" || f.status === "cancelled") return;
+    const remaining = f.notional - f.drawn;
+    const draw = Math.min(amount ?? remaining, remaining);
+    if (draw <= 0) return;
+    initiateSettlement({ from: f.from, amount: draw, rate: f.lockedRate });
+    const newDrawn = Math.round((f.drawn + draw) * 100) / 100;
+    setFxForwards((prev) => prev.map((x) => (x.id === id ? { ...x, drawn: newDrawn, status: newDrawn >= f.notional - 0.001 ? "settled" : "partially_drawn" } : x)));
+    pushNotif("success", `远期合约 ${id} 已交割 ${f.from} ${draw.toLocaleString()}`, `Forward ${id} drawn down`);
+  };
+  const terminateForward: MockValue["terminateForward"] = (id) =>
+    setFxForwards((prev) => prev.map((x) => (x.id === id && (x.status === "active" || x.status === "partially_drawn") ? { ...x, status: "cancelled" } : x)));
 
   // ── 发卡 ──
   const issueCard: MockValue["issueCard"] = (p) => {
@@ -582,6 +614,7 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setRecipientList(recipientsSeed);
     setSpotRates({ ...RATES });
     setFxOrders(fxOrdersSeed);
+    setFxForwards(fxForwardsSeed);
     setRiskRules(riskRulesSeed);
     setPaymentMethods(paymentMethodsSeed);
   };
@@ -669,6 +702,10 @@ export function MockProvider({ children }: { children: ReactNode }) {
         fxOrders,
         placeFxOrder,
         cancelFxOrder,
+        fxForwards,
+        bookForward,
+        drawForward,
+        terminateForward,
         cards,
         cardTxns,
         issueCard,

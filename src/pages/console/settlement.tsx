@@ -19,6 +19,7 @@ import { SettleFxDialog } from "@/components/pay/settle-fx-dialog";
 import { SettleRecordDrawer } from "@/components/pay/settle-record-drawer";
 import { FxTicker } from "@/components/pay/fx-ticker";
 import { FxOrderDialog } from "@/components/pay/fx-order-dialog";
+import { FxForwardDialog } from "@/components/pay/fx-forward-dialog";
 import { spotRate } from "@/mock/store";
 
 const STEP_KEYS = [
@@ -32,7 +33,7 @@ const STEP_KEYS = [
 export default function SettlementPage() {
   const { t } = useI18n();
   const { toast } = useToast();
-  const { funds, records, pendingUsd, retrySettlement, fxOrders, cancelFxOrder, spotRates } = useMock();
+  const { funds, records, pendingUsd, retrySettlement, fxOrders, cancelFxOrder, spotRates, fxForwards, drawForward, terminateForward } = useMock();
   const [openRef, setOpenRef] = useState<string | null>(null);
   const [reconView, setReconView] = useState<"orig" | "settle">("orig");
   const quotaPct = Math.round((settleQuota.usedRmb / settleQuota.totalRmb) * 100);
@@ -109,6 +110,7 @@ export default function SettlementPage() {
         <TabsList>
           <TabsTrigger value="pending">{t("stl.tabPending")}</TabsTrigger>
           <TabsTrigger value="orders">{t("fxo.tab")}</TabsTrigger>
+          <TabsTrigger value="forwards">{t("fwd.tab")}</TabsTrigger>
           <TabsTrigger value="records">{t("stl.tabRecords")}</TabsTrigger>
           <TabsTrigger value="recon">{t("stl.tabRecon")}</TabsTrigger>
         </TabsList>
@@ -218,6 +220,78 @@ export default function SettlementPage() {
                       );
                     })}
                     {fxOrders.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-10 text-center text-sm text-muted-foreground">{t("common.empty")}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="forwards">
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-3">
+              <p className="text-xs text-muted-foreground">{t("fwd.hint")}</p>
+              <FxForwardDialog>
+                <Button size="sm">
+                  <Plus />
+                  {t("fwd.new")}
+                </Button>
+              </FxForwardDialog>
+            </div>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-xs text-muted-foreground">
+                      <th className="px-6 py-2.5 text-left font-medium">{t("fwd.colContract")}</th>
+                      <th className="px-3 py-2.5 text-right font-medium">{t("fwd.notional")}</th>
+                      <th className="px-3 py-2.5 text-right font-medium">{t("fwd.locked")}</th>
+                      <th className="px-3 py-2.5 text-right font-medium">{t("fwd.spot")}</th>
+                      <th className="px-3 py-2.5 text-right font-medium">{t("fwd.mtm")}</th>
+                      <th className="px-3 py-2.5 text-left font-medium">{t("console.colStatus")}</th>
+                      <th className="px-6 py-2.5 text-right font-medium"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fxForwards.map((f) => {
+                      const spot = spotRate(spotRates, f.from, "CNY");
+                      const remaining = f.notional - f.drawn;
+                      const mtm = (spot - f.lockedRate) * remaining;
+                      const open = f.status === "active" || f.status === "partially_drawn";
+                      const stKey = f.status === "active" ? "fwd.statusActive" : f.status === "partially_drawn" ? "fwd.statusPartial" : f.status === "settled" ? "fwd.statusSettled" : "fwd.statusCancelled";
+                      const stTone = f.status === "settled" ? "text-success" : f.status === "cancelled" ? "text-muted-foreground" : "text-foreground";
+                      return (
+                        <tr key={f.id} className="border-b border-border/60 last:border-0">
+                          <td className="px-6 py-3">
+                            <div className="font-medium tabular-nums">{f.id}</div>
+                            <div className="text-xs text-muted-foreground">{f.termLabel}</div>
+                          </td>
+                          <td className="px-3 py-3 text-right tabular-nums">
+                            {f.from} {formatAmount(f.notional)}
+                            {f.drawn > 0 && <div className="text-xs text-muted-foreground">{t("fwd.drawn")} {formatAmount(f.drawn)}</div>}
+                          </td>
+                          <td className="px-3 py-3 text-right tabular-nums font-medium">{formatAmount(f.lockedRate, { min: 4, max: 4 })}</td>
+                          <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">{formatAmount(spot, { min: 4, max: 4 })}</td>
+                          <td className={cn("px-3 py-3 text-right tabular-nums font-medium", open ? (mtm >= 0 ? "text-pos" : "text-neg") : "text-muted-foreground")}>
+                            {open ? `${mtm >= 0 ? "+" : "−"} ${formatAmount(Math.abs(mtm), { min: 0, max: 0 })}` : "—"}
+                          </td>
+                          <td className={cn("px-3 py-3 font-medium", stTone)}>{t(stKey)}</td>
+                          <td className="px-6 py-3">
+                            {open && (
+                              <div className="flex justify-end gap-1">
+                                <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => drawForward(f.id)}>{t("fwd.draw")}</Button>
+                                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-danger hover:text-danger" onClick={() => { terminateForward(f.id); toast(t("fwd.terminated")); }}>{t("fwd.terminate")}</Button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {fxForwards.length === 0 && (
                       <tr>
                         <td colSpan={7} className="px-6 py-10 text-center text-sm text-muted-foreground">{t("common.empty")}</td>
                       </tr>

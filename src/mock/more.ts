@@ -121,6 +121,22 @@ export const fxOrdersSeed: FxOrder[] = [
   { id: "FXO-1039", from: "EUR", amount: 20000, targetRate: 7.85, direction: "gte", createdRate: 7.836, expiry: "GTC", status: "watching" },
   { id: "FXO-1031", from: "GBP", amount: 12000, targetRate: 9.05, direction: "gte", createdRate: 9.124, expiry: "2026-07-31", status: "triggered" },
 ];
+
+/** 远期/择期结汇合约：锁定未来结汇汇率对冲；flexible 可窗口内分批交割 */
+export type FxForward = {
+  id: string;
+  from: string;
+  notional: number;
+  lockedRate: number;
+  kind: "fixed" | "flexible";
+  termLabel: string;
+  drawn: number;
+  status: "active" | "partially_drawn" | "settled" | "cancelled";
+};
+export const fxForwardsSeed: FxForward[] = [
+  { id: "FWD-2041", from: "USD", notional: 200000, lockedRate: 7.21, kind: "fixed", termLabel: "T+90 · 到期 10-14", drawn: 0, status: "active" },
+  { id: "FWD-2038", from: "EUR", notional: 80000, lockedRate: 7.88, kind: "flexible", termLabel: "择期窗口 30 天", drawn: 30000, status: "partially_drawn" },
+];
 export const settleRecords: SettleRecord[] = [
   { ref: "STL-20260716-0042", from: "USD", amount: 10000, rmb: 71482.45, rate: 7.182, declared: true, status: "settled", date: "07-16 09:24" },
   { ref: "STL-20260715-0031", from: "EUR", amount: 8000, rmb: 62592.0, rate: 7.824, declared: true, status: "settled", date: "07-15 16:10" },
