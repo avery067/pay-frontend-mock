@@ -60,6 +60,9 @@ import {
   type PricingModel,
   feeRulesSeed,
   type FeeRule,
+  channelsSeed,
+  type AcquiringChannel,
+  type ChannelMode,
 } from "./more";
 import { cards as initialCards, notifications as notificationsSeed, type Card, type CardControls, type CardChannel, type CardAutoTopup } from "./data";
 
@@ -231,6 +234,11 @@ type MockValue = {
   // 本地支付方式矩阵
   paymentMethods: PaymentMethod[];
   toggleMethod: (code: string) => void;
+  // 收单渠道路由 + 网络令牌/RTAU：本地/直连/第三方路由切换与授权率杠杆量化（纯前端演示）
+  channels: AcquiringChannel[];
+  setChannelMode: (market: string, mode: ChannelMode) => void;
+  networkTokensOn: boolean;
+  toggleNetworkTokens: () => void;
   // 定价与费用透明：blended vs IC+ 方案切换（纯前端演示，不改真实余额）+ 自定义加价规则
   pricingModel: PricingModel;
   setPricingModel: (model: PricingModel) => void;
@@ -268,6 +276,14 @@ function jitterRates(spot: Record<string, number>): Record<string, number> {
     next[k] = Math.round(Math.min(seed * 1.03, Math.max(seed * 0.97, walk)) * 1e6) / 1e6;
   }
   return next;
+}
+
+// 收单渠道路由授权率演示基线：local 最高、direct 居中、third_party 最低；每市场固定微调；网络令牌/RTAU 开启整体 +3.3pt
+const CHANNEL_MODE_BASE: Record<ChannelMode, number> = { local: 92, direct: 89, third_party: 85 };
+const CHANNEL_MARKET_FLAVOR: Record<string, number> = { US: 0.4, EU: -0.3, BR: 0.1, SG: -0.4, MX: 0.2, HK: 0.6 };
+export function previewApprovalRate(market: string, mode: ChannelMode, tokensOn: boolean): number {
+  const base = CHANNEL_MODE_BASE[mode] + (CHANNEL_MARKET_FLAVOR[market] ?? 0) + (tokensOn ? 3.3 : 0);
+  return Math.round(base * 10) / 10;
 }
 
 function creditCny(bs: Balance[], rmb: number): Balance[] {
@@ -366,6 +382,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [receivingAccounts, setReceivingAccounts] = useState<ReceivingAccount[]>(receivingAccountsSeed);
   const [pricingModel, setPricingModelState] = useState<PricingModel>(pricingPlanSeed.model);
   const [feeRules, setFeeRules] = useState<FeeRule[]>(feeRulesSeed);
+  const [channels, setChannels] = useState<AcquiringChannel[]>(channelsSeed);
+  const [networkTokensOn, setNetworkTokensOn] = useState(false);
 
   const recordsRef = useRef(records);
   recordsRef.current = records;
@@ -414,6 +432,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const feeRulesRef = useRef(feeRules);
   feeRulesRef.current = feeRules;
   const ruleSeqRef = useRef(feeRulesSeed.length);
+  const networkTokensOnRef = useRef(networkTokensOn);
+  networkTokensOnRef.current = networkTokensOn;
 
   // ── 通知：loop 事件实时推送到铃铛 + 通知页 ──
   // 注：id 在更新函数外自增，避免 StrictMode 双调用导致序号跳号（保持更新函数纯净）
@@ -869,6 +889,17 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const toggleMethod: MockValue["toggleMethod"] = (code) =>
     setPaymentMethods((prev) => prev.map((m) => (m.code === code ? { ...m, enabled: !m.enabled } : m)));
 
+  // ── 收单渠道路由：切换市场路由模式即按模式基线重算授权率（叠加网络令牌杠杆），纯前端演示 ──
+  const setChannelMode: MockValue["setChannelMode"] = (market, mode) => {
+    const approvalRate = previewApprovalRate(market, mode, networkTokensOnRef.current);
+    setChannels((prev) => prev.map((c) => (c.market === market ? { ...c, mode, approvalRate } : c)));
+  };
+  const toggleNetworkTokens: MockValue["toggleNetworkTokens"] = () => {
+    const next = !networkTokensOnRef.current;
+    setNetworkTokensOn(next);
+    setChannels((prev) => prev.map((c) => ({ ...c, approvalRate: previewApprovalRate(c.market, c.mode, next) })));
+  };
+
   // ── 定价与费用透明：方案切换纯前端演示（不改余额/不入台账），费率规则渠道×方式×币种三元组唯一 ──
   const setPricingModel: MockValue["setPricingModel"] = (model) => setPricingModelState(model);
   const addFeeRule: MockValue["addFeeRule"] = ({ channel, method, currency, fixed, rateBps }) => {
@@ -914,6 +945,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setReceivingAccounts(receivingAccountsSeed);
     setPricingModelState(pricingPlanSeed.model);
     setFeeRules(feeRulesSeed);
+    setChannels(channelsSeed);
+    setNetworkTokensOn(false);
   };
 
   // 自动推进：结汇处理中的记录 + 已开始结算的批次
@@ -1076,6 +1109,10 @@ export function MockProvider({ children }: { children: ReactNode }) {
         collectLink,
         paymentMethods,
         toggleMethod,
+        channels,
+        setChannelMode,
+        networkTokensOn,
+        toggleNetworkTokens,
         pricingModel,
         setPricingModel,
         pricingPlan: pricingPlanSeed,

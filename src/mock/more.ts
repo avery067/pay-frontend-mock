@@ -336,6 +336,9 @@ export type AcqTxn = {
   payerCountry?: string;
   // 定价透明：Interchange++ 三段拆解（发卡行手续费 / 卡组织费 / 我方加价），三段之和 = fee
   feeBreakdown?: { interchange: number; scheme: number; markup: number };
+  // 收单渠道路由 + 网络令牌（示例，选填，不改既有种子数据）
+  channelMode?: ChannelMode;
+  networkToken?: "none" | "tokenized" | "updated";
 };
 export const acqTxnsSeed: AcqTxn[] = [
   { order: "OD-88234", merchant: "Hooli（示例）", method: "Visa •••• 0198", gross: 4200, fee: 121.8, reserve: 0, net: 4078.2, currency: "USD", captureMode: "manual", stage: 0, status: "review", time: "09:31", riskScore: 82, riskRules: ["velocity", "geoMismatch"], feeBreakdown: { interchange: 73.08, scheme: 18.27, markup: 30.45 } },
@@ -409,6 +412,23 @@ export const paymentMethodsSeed: PaymentMethod[] = [
   { code: "boleto", name: "Boleto", kind: "cash", regions: ["BR"], currencies: ["BRL"], enabled: false, refundable: false, async: true },
   { code: "pix", name: "PIX", kind: "cash", regions: ["BR"], currencies: ["BRL"], enabled: true, refundable: true, async: true },
   { code: "oxxo", name: "OXXO", kind: "cash", regions: ["MX"], currencies: ["MXN"], enabled: false, refundable: false, async: true },
+];
+
+// ── 本地收单渠道路由：本地收单 / 直连卡组织 / 第三方聚合三种路由模式按市场配置，授权率与交换费档随路由联动（示例）──
+export type ChannelMode = "local" | "direct" | "third_party";
+export type AcquiringChannel = {
+  market: string;
+  mode: ChannelMode;
+  approvalRate: number;
+  interchangeTier: string;
+};
+export const channelsSeed: AcquiringChannel[] = [
+  { market: "US", mode: "local", approvalRate: 92.4, interchangeTier: "Tier 1 · 1.65%" },
+  { market: "EU", mode: "direct", approvalRate: 88.7, interchangeTier: "Tier 2 · 0.30%" },
+  { market: "BR", mode: "local", approvalRate: 92.1, interchangeTier: "Tier 1 · 1.20%" },
+  { market: "SG", mode: "direct", approvalRate: 88.6, interchangeTier: "Tier 2 · 1.80%" },
+  { market: "MX", mode: "third_party", approvalRate: 85.2, interchangeTier: "Tier 3 · 2.10%" },
+  { market: "HK", mode: "local", approvalRate: 92.6, interchangeTier: "Tier 1 · 1.40%" },
 ];
 
 export type BatchStatus = "scheduled" | "settling" | "paid_out" | "credited";

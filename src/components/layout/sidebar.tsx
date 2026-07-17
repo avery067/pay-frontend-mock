@@ -22,6 +22,7 @@ import {
   Settings,
   Building2,
   Inbox,
+  Waypoints,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,7 @@ const GROUPS: Group[] = [
     items: [
       { to: "/app/payments", icon: HandCoins, key: "nav.payments" },
       { to: "/app/methods", icon: Wallet2, key: "nav.methods" },
+      { to: "/app/acquiring-channels", icon: Waypoints, key: "nav.channels" },
       { to: "/app/links", icon: Link2, key: "nav.links" },
       { to: "/app/risk", icon: ShieldAlert, key: "nav.risk" },
       { to: "/app/disputes", icon: Scale, key: "nav.disputes" },
