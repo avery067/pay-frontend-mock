@@ -21,6 +21,7 @@ import CardsPage from "@/pages/console/cards";
 import CardholdersPage from "@/pages/console/cardholders";
 import ReportsPage from "@/pages/console/reports";
 import StatementsPage from "@/pages/console/statements";
+import ReconciliationPage from "@/pages/console/reconciliation";
 import TeamPage from "@/pages/console/team";
 import DevelopersPage from "@/pages/console/developers";
 import SettingsPage from "@/pages/console/settings";
@@ -50,6 +51,7 @@ export function App() {
         <Route path="cardholders" element={<CardholdersPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="statements" element={<StatementsPage />} />
+        <Route path="reconciliation" element={<ReconciliationPage />} />
         <Route path="team" element={<TeamPage />} />
         <Route path="developers" element={<DevelopersPage />} />
         <Route path="settings" element={<SettingsPage />} />

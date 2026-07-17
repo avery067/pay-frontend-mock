@@ -17,6 +17,7 @@ import {
   UsersRound,
   Code2,
   FileText,
+  ClipboardCheck,
   Settings,
   Building2,
   type LucideIcon,
@@ -62,6 +63,7 @@ const GROUPS: Group[] = [
     items: [
       { to: "/app/reports", icon: BarChart3, key: "nav.reports" },
       { to: "/app/statements", icon: FileText, key: "nav.statements" },
+      { to: "/app/reconciliation", icon: ClipboardCheck, key: "nav.reconciliation" },
       { to: "/app/team", icon: UsersRound, key: "nav.team" },
       { to: "/app/developers", icon: Code2, key: "nav.developers" },
     ],
