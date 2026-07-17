@@ -51,6 +51,8 @@ export type CardControls = {
   velocity: { maxCount: number; window: "month" };
 };
 
+export type CardAutoTopup = { on: boolean; threshold: number; target: number };
+
 export type Card = {
   id: string;
   name: string;
@@ -65,6 +67,9 @@ export type Card = {
   // 内存计数器（原型：demo 重置清零）
   spentToday: number;
   monthCount: number;
+  // 卡资金账户 + 自动充值
+  cardBalance: number;
+  autoTopup: CardAutoTopup;
 };
 
 const ctrl = (p: Partial<CardControls> & { channels?: Partial<Record<CardChannel, boolean>> } = {}): CardControls => ({
@@ -78,13 +83,13 @@ const ctrl = (p: Partial<CardControls> & { channels?: Partial<Record<CardChannel
 });
 
 export const cards: Card[] = [
-  { id: "c1", name: "市场投放卡", type: "virtual", brand: "Visa", last4: "4242", currency: "USD", limit: 20000, spent: 12480, status: "active", spentToday: 640, monthCount: 23,
+  { id: "c1", name: "市场投放卡", type: "virtual", brand: "Visa", last4: "4242", currency: "USD", limit: 20000, spent: 12480, status: "active", spentToday: 640, monthCount: 23, cardBalance: 3200, autoTopup: { on: true, threshold: 2000, target: 5000 },
     controls: ctrl({ channels: { online: true, atm: false, pos: false, crossBorder: true }, mccMode: "allow", mccList: ["5967", "4899", "5734"], perTxnLimit: 5000, dailyLimit: 8000, monthlyLimit: 20000, velocity: { maxCount: 50, window: "month" } }) },
-  { id: "c2", name: "SaaS 订阅卡", type: "virtual", brand: "Mastercard", last4: "5100", currency: "USD", limit: 5000, spent: 3260.5, status: "active", spentToday: 0, monthCount: 8,
+  { id: "c2", name: "SaaS 订阅卡", type: "virtual", brand: "Mastercard", last4: "5100", currency: "USD", limit: 5000, spent: 3260.5, status: "active", spentToday: 0, monthCount: 8, cardBalance: 900, autoTopup: { on: true, threshold: 500, target: 2000 },
     controls: ctrl({ channels: { online: true, atm: false, pos: false, crossBorder: true }, mccMode: "allow", mccList: ["5734", "4899"], perTxnLimit: 1000, dailyLimit: 2000, monthlyLimit: 5000, velocity: { maxCount: 20, window: "month" } }) },
-  { id: "c3", name: "差旅实体卡", type: "physical", brand: "Visa", last4: "8817", currency: "EUR", limit: 10000, spent: 1890, status: "frozen", spentToday: 0, monthCount: 5,
+  { id: "c3", name: "差旅实体卡", type: "physical", brand: "Visa", last4: "8817", currency: "EUR", limit: 10000, spent: 1890, status: "frozen", spentToday: 0, monthCount: 5, cardBalance: 4100, autoTopup: { on: false, threshold: 1000, target: 4000 },
     controls: ctrl({ channels: { online: true, atm: true, pos: true, crossBorder: true }, mccMode: "allow", mccList: ["4511", "7011", "5812", "5541"], perTxnLimit: 3000, dailyLimit: 5000, monthlyLimit: 10000, velocity: { maxCount: 40, window: "month" } }) },
-  { id: "c4", name: "供应商付款卡", type: "virtual", brand: "Mastercard", last4: "3390", currency: "USD", limit: 50000, spent: 41200, status: "active", spentToday: 5200, monthCount: 31,
+  { id: "c4", name: "供应商付款卡", type: "virtual", brand: "Mastercard", last4: "3390", currency: "USD", limit: 50000, spent: 41200, status: "active", spentToday: 5200, monthCount: 31, cardBalance: 15000, autoTopup: { on: false, threshold: 5000, target: 20000 },
     controls: ctrl({ channels: { online: true, atm: false, pos: false, crossBorder: true }, mccMode: "deny", mccList: [], perTxnLimit: 50000, dailyLimit: 50000, monthlyLimit: 50000, velocity: { maxCount: 80, window: "month" } }) },
 ];
 

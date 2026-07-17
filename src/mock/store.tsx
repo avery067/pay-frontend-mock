@@ -40,7 +40,7 @@ import {
   type PaymentMethod,
   type MethodKind,
 } from "./more";
-import { cards as initialCards, notifications as notificationsSeed, type Card, type CardControls, type CardChannel } from "./data";
+import { cards as initialCards, notifications as notificationsSeed, type Card, type CardControls, type CardChannel, type CardAutoTopup } from "./data";
 
 /** 结汇阶段：0 发起 · 1 合规审核 · 2 兑换 · 3 汇出 · 4 到账 */
 export type SettleStage = 0 | 1 | 2 | 3 | 4;
@@ -80,6 +80,8 @@ function evaluateControls(card: Card, p: { amount: number; mcc: string; channel:
   if (card.spentToday + p.amount > c.dailyLimit) return { ok: false, reason: "daily" };
   if (card.spent + p.amount > c.monthlyLimit) return { ok: false, reason: "monthly" };
   if (card.monthCount + 1 > c.velocity.maxCount) return { ok: false, reason: "velocity" };
+  const funds = card.autoTopup.on ? Math.max(card.cardBalance, card.autoTopup.target) : card.cardBalance;
+  if (funds < p.amount) return { ok: false, reason: "insufficient" };
   return { ok: true };
 }
 
@@ -126,6 +128,8 @@ type MockValue = {
   issueCard: (p: { name: string; type: "virtual" | "physical"; brand: string; last4: string; currency: string; limit: number }) => string;
   spendOnCard: (p: { cardId: string; currency: string; merchant: string; amount: number; mcc: string; channel: CardChannel }) => SpendCheck;
   updateCardControls: (cardId: string, patch: Partial<CardControls>) => void;
+  topupCard: (cardId: string, amount: number) => void;
+  setAutoTopup: (cardId: string, patch: Partial<CardAutoTopup>) => void;
   setCardFrozen: (cardId: string, frozen: boolean) => void;
   terminateCard: (cardId: string) => void;
   // 收单闭环
@@ -358,6 +362,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
       status: "issuing",
       spentToday: 0,
       monthCount: 0,
+      cardBalance: Math.round(p.limit / 4),
+      autoTopup: { on: true, threshold: Math.round(p.limit / 10), target: Math.round(p.limit / 4) },
       controls: {
         channels: { online: true, atm: false, pos: true, crossBorder: true },
         mccMode: "deny",
@@ -385,9 +391,13 @@ export function MockProvider({ children }: { children: ReactNode }) {
       setCardTxns((prev) => ({ ...prev, [cardId]: [{ id: tid, merchant, amount, mcc, channel, status: "declined", reason: check.reason }, ...(prev[cardId] || [])] }));
       return check;
     }
-    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, spent: c.spent + amount, spentToday: c.spentToday + amount, monthCount: c.monthCount + 1 } : c)));
-    const usdPer = getRate(currency, "USD");
-    setBalances((bs) => bs.map((b) => (b.currency === currency ? { ...b, available: Math.max(0, b.available - amount), usdEq: Math.max(0, b.usdEq - amount * usdPer) } : b)));
+    // 卡资金账户：从卡内余额扣款；开启自动充值且不足则先从主账户加油到目标
+    const topupAmt = card.autoTopup.on && card.cardBalance < amount ? Math.round((card.autoTopup.target - card.cardBalance) * 100) / 100 : 0;
+    if (topupAmt > 0) {
+      const usdPer = getRate(currency, "USD");
+      setBalances((bs) => bs.map((b) => (b.currency === currency ? { ...b, available: Math.max(0, b.available - topupAmt), usdEq: Math.max(0, b.usdEq - topupAmt * usdPer) } : b)));
+    }
+    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, cardBalance: Math.round((c.cardBalance + topupAmt - amount) * 100) / 100, spent: c.spent + amount, spentToday: c.spentToday + amount, monthCount: c.monthCount + 1 } : c)));
     // 两段式：先授权(预占额度)，由 tick 自动清算入账
     setCardTxns((prev) => ({ ...prev, [cardId]: [{ id: tid, merchant, amount, mcc, channel, status: "authorized" }, ...(prev[cardId] || [])] }));
     pushLedger({ type: "card", desc: merchant, dir: "out", amount, currency, status: "settled" });
@@ -395,6 +405,16 @@ export function MockProvider({ children }: { children: ReactNode }) {
   };
   const updateCardControls: MockValue["updateCardControls"] = (cardId, patch) =>
     setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, controls: { ...c.controls, ...patch } } : c)));
+  // 卡片充值：从主账户划入卡内余额
+  const topupCard: MockValue["topupCard"] = (cardId, amount) => {
+    const card = cardsRef.current.find((c) => c.id === cardId);
+    if (!card || amount <= 0) return;
+    const usdPer = getRate(card.currency, "USD");
+    setBalances((bs) => bs.map((b) => (b.currency === card.currency ? { ...b, available: Math.max(0, b.available - amount), usdEq: Math.max(0, b.usdEq - amount * usdPer) } : b)));
+    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, cardBalance: Math.round((c.cardBalance + amount) * 100) / 100 } : c)));
+  };
+  const setAutoTopup: MockValue["setAutoTopup"] = (cardId, patch) =>
+    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, autoTopup: { ...c.autoTopup, ...patch } } : c)));
   const setCardFrozen: MockValue["setCardFrozen"] = (cardId, frozen) =>
     setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, status: frozen ? "frozen" : "active" } : c)));
   const terminateCard: MockValue["terminateCard"] = (cardId) => setCards((prev) => prev.filter((c) => c.id !== cardId));
@@ -656,6 +676,19 @@ export function MockProvider({ children }: { children: ReactNode }) {
         });
       }
 
+      // 卡资金账户油量灯：开启自动充值且低于阈值 → 从主账户加油到目标
+      cardsRef.current
+        .filter((c) => c.autoTopup.on && c.cardBalance < c.autoTopup.threshold)
+        .forEach((c) => {
+          const amt = Math.round((c.autoTopup.target - c.cardBalance) * 100) / 100;
+          if (amt > 0) {
+            const usdPer = getRate(c.currency, "USD");
+            setBalances((bs) => bs.map((b) => (b.currency === c.currency ? { ...b, available: Math.max(0, b.available - amt), usdEq: Math.max(0, b.usdEq - amt * usdPer) } : b)));
+            setCards((prev) => prev.map((x) => (x.id === c.id ? { ...x, cardBalance: c.autoTopup.target } : x)));
+            pushNotif("success", `${c.name} 自动充值 ${c.currency} ${amt.toLocaleString()}`, `${c.name} auto-topped up`);
+          }
+        });
+
       // 实时行情随机游走 + 限价委托越线触发结汇
       const nextSpot = jitterRates(spotRatesRef.current);
       setSpotRates(nextSpot);
@@ -711,6 +744,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
         issueCard,
         spendOnCard,
         updateCardControls,
+        topupCard,
+        setAutoTopup,
         setCardFrozen,
         terminateCard,
         acqTxns,

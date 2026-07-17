@@ -47,7 +47,7 @@ export function CardDrawer({
 }) {
   const { t, lang } = useI18n();
   const { toast } = useToast();
-  const { cards, cardTxns, spendOnCard, updateCardControls, setCardFrozen, terminateCard } = useMock();
+  const { cards, cardTxns, spendOnCard, updateCardControls, topupCard, setAutoTopup, setCardFrozen, terminateCard } = useMock();
   const card = cardId ? cards.find((c) => c.id === cardId) ?? null : null;
 
   const [amount, setAmount] = useState(128.4);
@@ -114,6 +114,40 @@ export function CardDrawer({
             <div className="grid grid-cols-2 gap-3 text-sm">
               <Meta label={t("iss.perTxn")} value={formatMoney(c.perTxnLimit, card.currency)} />
               <Meta label={t("iss.velocity")} value={`${card.monthCount} / ${c.velocity.maxCount} ${t("iss.velocityUnit")}`} />
+            </div>
+          </div>
+
+          {/* 卡资金账户 + 自动充值 */}
+          <div className="space-y-3 rounded-xl border border-border p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">{t("iss.funding")}</span>
+              {editable && (
+                <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => { topupCard(card.id, card.autoTopup.target); toast(t("iss.topupDone")); }}>
+                  {t("iss.topup")}
+                </Button>
+              )}
+            </div>
+            <div>
+              <div className="flex items-baseline justify-between text-sm">
+                <span className="text-muted-foreground">{t("iss.cardBalance")}</span>
+                <span className="tabular-nums font-semibold">{formatMoney(card.cardBalance, card.currency)}</span>
+              </div>
+              <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-secondary">
+                <div
+                  className={cn("h-full rounded-full transition-[width] duration-500", card.cardBalance < card.autoTopup.threshold ? "bg-warning" : "bg-brand")}
+                  style={{ width: `${Math.min(100, Math.round((card.cardBalance / Math.max(1, card.autoTopup.target)) * 100))}%` }}
+                />
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground tabular-nums">
+                {t("iss.threshold")} {formatAmount(card.autoTopup.threshold)} · {t("iss.autoTopup")} → {formatAmount(card.autoTopup.target)}
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm">{t("iss.autoTopup")}</div>
+                <div className="text-xs text-muted-foreground">{t("iss.autoTopupDesc")}</div>
+              </div>
+              <Switch checked={card.autoTopup.on} onCheckedChange={(v) => setAutoTopup(card.id, { on: v })} disabled={!editable} />
             </div>
           </div>
 
