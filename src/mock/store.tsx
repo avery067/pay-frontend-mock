@@ -55,6 +55,8 @@ import {
   type MethodKind,
   receivingAccountsSeed,
   type ReceivingAccount,
+  WITHDRAW_CHANNELS,
+  type WithdrawChannel,
   pricingPlanSeed,
   type PricingPlan,
   type PricingModel,
@@ -219,7 +221,7 @@ type MockValue = {
   acceptDispute: (id: string) => void;
   escalateDispute: (id: string) => void;
   uploadEvidence: (id: string, doc: string) => void;
-  withdraw: (p: { currency: string; amount: number }) => void;
+  withdraw: (p: { currency: string; amount: number; channel?: WithdrawChannel }) => void;
   // 统一实时台账 + 资金转出闭环
   ledger: LedgerTxn[];
   convert: (p: { from: string; to: string; pay: number; get: number }) => void;
@@ -806,12 +808,21 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const uploadEvidence: MockValue["uploadEvidence"] = (id, doc) =>
     setDisputes((prev) => prev.map((d) => (d.id === id ? { ...d, evidenceUploaded: (d.evidenceUploaded ?? []).includes(doc) ? d.evidenceUploaded : [...(d.evidenceUploaded ?? []), doc] } : d)));
 
-  const withdraw: MockValue["withdraw"] = ({ currency, amount }) => {
+  // 提现路径细分（优享/快速/加急）：channel 可选，默认 preferred，向后兼容不传 channel 的旧调用
+  const withdraw: MockValue["withdraw"] = ({ currency, amount, channel = "preferred" }) => {
     const usdPer = getRate(currency, "USD");
     setBalances((bs) =>
       bs.map((b) => (b.currency === currency ? { ...b, available: Math.max(0, b.available - amount), usdEq: Math.max(0, b.usdEq - amount * usdPer) } : b)),
     );
-    pushLedger({ type: "payout", desc: `提现到银行 · ${currency}`, dir: "out", amount, currency, status: "settled" });
+    const info = WITHDRAW_CHANNELS.find((c) => c.key === channel) ?? WITHDRAW_CHANNELS[0];
+    const expediteFee = Math.round(amount * info.rate * 100) / 100;
+    const channelDesc =
+      channel === "fast"
+        ? `快速通道（合作行价 · 加急费 ${expediteFee.toLocaleString()}）`
+        : channel === "express"
+          ? `加急通道（当天到账 · 加急费 ${expediteFee.toLocaleString()}）`
+          : `优享通道（工作日实时价 · 无加急费）`;
+    pushLedger({ type: "payout", desc: `提现到银行 · ${currency} · ${channelDesc}`, dir: "out", amount, currency, status: "settled" });
   };
 
   // ── 兑换闭环：扣兑出币种、增兑入币种、记入台账 ──

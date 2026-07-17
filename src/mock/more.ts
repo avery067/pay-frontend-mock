@@ -159,6 +159,30 @@ export const receivingAccountsSeed: ReceivingAccount[] = [
   },
 ];
 
+// ── 提现路径细分：优享 / 快速 / 加急，中间行扣费透明（结汇 P2-F8）──
+export type WithdrawChannel = "preferred" | "fast" | "express";
+export type WithdrawChannelInfo = {
+  key: WithdrawChannel;
+  etaZh: string;
+  etaEn: string;
+  /** 费率徽标文案（百分比，语言无关） */
+  feeLabel: string;
+  /** 加急费率：按提现金额计提，叠加在中间行扣费之上 */
+  rate: number;
+};
+export const WITHDRAW_CHANNELS: WithdrawChannelInfo[] = [
+  { key: "preferred", etaZh: "1–2 个工作日", etaEn: "1–2 business days", feeLabel: "0%", rate: 0 },
+  { key: "fast", etaZh: "当日到账（工作时间内）", etaEn: "Same-day (business hours)", feeLabel: "0.10%", rate: 0.001 },
+  { key: "express", etaZh: "实时到账 · 7×24", etaEn: "Real-time · 24/7", feeLabel: "0.50%", rate: 0.005 },
+];
+
+/** 中间行逐跳扣费示例（国际电汇途经中转行，每跳固定扣费）：到手 = 提现金额 − 各跳扣费 − 加急费 */
+export type WithdrawHop = { bank: string; deduct: number; label: string };
+export const WITHDRAW_HOPS: WithdrawHop[] = [
+  { bank: "中转行 A", deduct: 15, label: "SWIFT 手续费" },
+  { bank: "中转行 B", deduct: 8, label: "电报费" },
+];
+
 /** 通用多级审批步骤 */
 export type ApprovalStep = { role: string; done: boolean };
 /** 批量结汇批次（超阈值需多级审批） */
