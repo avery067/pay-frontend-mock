@@ -26,6 +26,7 @@ import DevelopersPage from "@/pages/console/developers";
 import SettingsPage from "@/pages/console/settings";
 import AccountPage from "@/pages/console/account";
 import NotificationsPage from "@/pages/console/notifications";
+import PricingPage from "@/pages/console/pricing";
 
 export function App() {
   return (
@@ -56,6 +57,7 @@ export function App() {
         <Route path="account" element={<AccountPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="settlement" element={<SettlementPage />} />
+        <Route path="pricing" element={<PricingPage />} />
         {/* 旧业务线路径重定向到商户视角页面 */}
         <Route path="issuing" element={<Navigate to="/app/cards" replace />} />
         <Route path="acquiring" element={<Navigate to="/app/payments" replace />} />

@@ -1,4 +1,5 @@
-import { Check, PlusCircle, StopCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, ChevronDown, PlusCircle, StopCircle } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/format";
@@ -46,6 +47,8 @@ export function AcquiringTxnDrawer({
   const authAmt = x ? x.authAmount ?? x.gross : 0;
   const capturedAmt = x ? x.capturedAmount ?? 0 : 0;
   const remaining = Math.round((authAmt - capturedAmt) * 100) / 100;
+  const [feeOpen, setFeeOpen] = useState(false);
+  useEffect(() => { setFeeOpen(false); }, [order]);
 
   return (
     <Sheet open={!!order} onOpenChange={onOpenChange}>
@@ -70,7 +73,31 @@ export function AcquiringTxnDrawer({
                 <div className="mb-2 text-sm font-medium">{t("acq.waterfall")}</div>
                 <div className="space-y-2 rounded-xl bg-muted/40 p-3 text-sm">
                   <Row label={t("acq.colGross")} value={formatMoney(x.gross)} />
-                  <Row label={t("acq.colFee")} value={`− ${formatMoney(x.fee)}`} />
+                  {x.feeBreakdown ? (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setFeeOpen((v) => !v)}
+                        aria-expanded={feeOpen}
+                        className="flex w-full items-center justify-between text-left"
+                      >
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          {t("acq.colFee")}
+                          <ChevronDown className={cn("size-3.5 transition-transform", feeOpen && "rotate-180")} />
+                        </span>
+                        <span className="font-medium tabular-nums">{`− ${formatMoney(x.fee)}`}</span>
+                      </button>
+                      {feeOpen && (
+                        <div className="mt-1.5 space-y-1 border-l border-border pl-3">
+                          <Row label={t("price.interchange")} value={`− ${formatMoney(x.feeBreakdown.interchange)}`} sub />
+                          <Row label={t("price.scheme")} value={`− ${formatMoney(x.feeBreakdown.scheme)}`} sub />
+                          <Row label={t("price.markup")} value={`− ${formatMoney(x.feeBreakdown.markup)}`} sub />
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <Row label={t("acq.colFee")} value={`− ${formatMoney(x.fee)}`} />
+                  )}
                   {x.reserve > 0 && <Row label={t("acq.colReserve")} value={`− ${formatMoney(x.reserve)}`} />}
                   <div className="h-px bg-border" />
                   <Row label={t("acq.colNet")} value={formatMoney(x.net)} strong />
@@ -172,9 +199,9 @@ function Timeline({ stage, status }: { stage: number; status: string }) {
   );
 }
 
-function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+function Row({ label, value, strong, sub }: { label: string; value: string; strong?: boolean; sub?: boolean }) {
   return (
-    <div className="flex items-center justify-between">
+    <div className={cn("flex items-center justify-between", sub && "text-xs")}>
       <span className="text-muted-foreground">{label}</span>
       <span className={strong ? "font-semibold tabular-nums" : "font-medium tabular-nums"}>{value}</span>
     </div>

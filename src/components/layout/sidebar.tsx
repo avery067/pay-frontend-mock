@@ -17,6 +17,7 @@ import {
   UsersRound,
   Code2,
   FileText,
+  Percent,
   Settings,
   Building2,
   type LucideIcon,
@@ -61,6 +62,7 @@ const GROUPS: Group[] = [
     label: "nav.groupManage",
     items: [
       { to: "/app/reports", icon: BarChart3, key: "nav.reports" },
+      { to: "/app/pricing", icon: Percent, key: "nav.pricing" },
       { to: "/app/statements", icon: FileText, key: "nav.statements" },
       { to: "/app/team", icon: UsersRound, key: "nav.team" },
       { to: "/app/developers", icon: Code2, key: "nav.developers" },

@@ -267,19 +267,35 @@ export type AcqTxn = {
   // 本地支付方式
   methodKind?: MethodKind;
   payerCountry?: string;
+  // 定价透明：Interchange++ 三段拆解（发卡行手续费 / 卡组织费 / 我方加价），三段之和 = fee
+  feeBreakdown?: { interchange: number; scheme: number; markup: number };
 };
 export const acqTxnsSeed: AcqTxn[] = [
-  { order: "OD-88234", merchant: "Hooli（示例）", method: "Visa •••• 0198", gross: 4200, fee: 121.8, reserve: 0, net: 4078.2, currency: "USD", captureMode: "manual", stage: 0, status: "review", time: "09:31", riskScore: 82, riskRules: ["velocity", "geoMismatch"] },
-  { order: "OD-88233", merchant: "Vandelay（示例）", method: "Mastercard •••• 7741", gross: 980, fee: 28.4, reserve: 0, net: 951.6, currency: "USD", captureMode: "auto", stage: 0, status: "review", time: "09:18", riskScore: 66, riskRules: ["newDevice"] },
-  { order: "OD-88231", merchant: "Contoso（示例）", method: "Visa •••• 4242", gross: 12000, fee: 348, reserve: 0, net: 11652, currency: "USD", captureMode: "manual", stage: 0, status: "authorized", time: "09:24", riskScore: 24, threeDS: "frictionless" },
-  { order: "OD-88230", merchant: "Umbrella（示例）", method: "Mastercard •••• 5100", gross: 2600, fee: 75.4, reserve: 0, net: 2524.6, currency: "USD", captureMode: "manual", stage: 0, status: "authorized", time: "09:12", riskScore: 51, threeDS: "challenged" },
-  { order: "OD-88229", merchant: "Acme Inc.（示例）", method: "Visa •••• 4242", gross: 1200, fee: 34.8, reserve: 0, net: 1165.2, currency: "USD", captureMode: "auto", stage: 1, status: "captured", time: "08:57" },
-  { order: "OD-88228", merchant: "示例商户 001", method: "Alipay", gross: 3450, fee: 20.7, reserve: 0, net: 3429.3, currency: "USD", captureMode: "auto", stage: 1, status: "captured", time: "08:30" },
-  { order: "OD-88227", merchant: "Globex（示例）", method: "Mastercard •••• 5100", gross: 880, fee: 25.5, reserve: 70.4, net: 784.1, currency: "USD", captureMode: "auto", stage: 2, status: "in_batch", batchId: "PO-20260718", time: "08:02" },
-  { order: "OD-88226", merchant: "Stark Ind.（示例）", method: "Amex •••• 1004", gross: 9800, fee: 284.2, reserve: 0, net: 9515.8, currency: "USD", captureMode: "auto", stage: 3, status: "settling", batchId: "PO-20260717", time: "07:41" },
-  { order: "OD-88225", merchant: "示例网店", method: "WeChat Pay", gross: 220, fee: 1.3, reserve: 0, net: 218.7, currency: "USD", captureMode: "auto", stage: 0, status: "refunded", time: "07:20" },
-  { order: "OD-88224", merchant: "Wayne Co.（示例）", method: "Visa •••• 9002", gross: 640, fee: 18.6, reserve: 0, net: 621.4, currency: "USD", captureMode: "auto", stage: 0, status: "disputed", time: "06:40" },
-  { order: "OD-88220", merchant: "Initech（示例）", method: "Visa •••• 7788", gross: 5400, fee: 156.6, reserve: 432, net: 4811.4, currency: "USD", captureMode: "auto", stage: 5, status: "credited", batchId: "PO-20260710", time: "昨日" },
+  { order: "OD-88234", merchant: "Hooli（示例）", method: "Visa •••• 0198", gross: 4200, fee: 121.8, reserve: 0, net: 4078.2, currency: "USD", captureMode: "manual", stage: 0, status: "review", time: "09:31", riskScore: 82, riskRules: ["velocity", "geoMismatch"], feeBreakdown: { interchange: 73.08, scheme: 18.27, markup: 30.45 } },
+  { order: "OD-88233", merchant: "Vandelay（示例）", method: "Mastercard •••• 7741", gross: 980, fee: 28.4, reserve: 0, net: 951.6, currency: "USD", captureMode: "auto", stage: 0, status: "review", time: "09:18", riskScore: 66, riskRules: ["newDevice"], feeBreakdown: { interchange: 17.04, scheme: 4.26, markup: 7.10 } },
+  { order: "OD-88231", merchant: "Contoso（示例）", method: "Visa •••• 4242", gross: 12000, fee: 348, reserve: 0, net: 11652, currency: "USD", captureMode: "manual", stage: 0, status: "authorized", time: "09:24", riskScore: 24, threeDS: "frictionless", feeBreakdown: { interchange: 208.80, scheme: 52.20, markup: 87.00 } },
+  { order: "OD-88230", merchant: "Umbrella（示例）", method: "Mastercard •••• 5100", gross: 2600, fee: 75.4, reserve: 0, net: 2524.6, currency: "USD", captureMode: "manual", stage: 0, status: "authorized", time: "09:12", riskScore: 51, threeDS: "challenged", feeBreakdown: { interchange: 45.24, scheme: 11.31, markup: 18.85 } },
+  { order: "OD-88229", merchant: "Acme Inc.（示例）", method: "Visa •••• 4242", gross: 1200, fee: 34.8, reserve: 0, net: 1165.2, currency: "USD", captureMode: "auto", stage: 1, status: "captured", time: "08:57", feeBreakdown: { interchange: 20.88, scheme: 5.22, markup: 8.70 } },
+  { order: "OD-88228", merchant: "示例商户 001", method: "Alipay", gross: 3450, fee: 20.7, reserve: 0, net: 3429.3, currency: "USD", captureMode: "auto", stage: 1, status: "captured", time: "08:30", feeBreakdown: { interchange: 12.42, scheme: 3.11, markup: 5.17 } },
+  { order: "OD-88227", merchant: "Globex（示例）", method: "Mastercard •••• 5100", gross: 880, fee: 25.5, reserve: 70.4, net: 784.1, currency: "USD", captureMode: "auto", stage: 2, status: "in_batch", batchId: "PO-20260718", time: "08:02", feeBreakdown: { interchange: 15.30, scheme: 3.83, markup: 6.37 } },
+  { order: "OD-88226", merchant: "Stark Ind.（示例）", method: "Amex •••• 1004", gross: 9800, fee: 284.2, reserve: 0, net: 9515.8, currency: "USD", captureMode: "auto", stage: 3, status: "settling", batchId: "PO-20260717", time: "07:41", feeBreakdown: { interchange: 170.52, scheme: 42.63, markup: 71.05 } },
+  { order: "OD-88225", merchant: "示例网店", method: "WeChat Pay", gross: 220, fee: 1.3, reserve: 0, net: 218.7, currency: "USD", captureMode: "auto", stage: 0, status: "refunded", time: "07:20", feeBreakdown: { interchange: 0.78, scheme: 0.20, markup: 0.32 } },
+  { order: "OD-88224", merchant: "Wayne Co.（示例）", method: "Visa •••• 9002", gross: 640, fee: 18.6, reserve: 0, net: 621.4, currency: "USD", captureMode: "auto", stage: 0, status: "disputed", time: "06:40", feeBreakdown: { interchange: 11.16, scheme: 2.79, markup: 4.65 } },
+  { order: "OD-88220", merchant: "Initech（示例）", method: "Visa •••• 7788", gross: 5400, fee: 156.6, reserve: 432, net: 4811.4, currency: "USD", captureMode: "auto", stage: 5, status: "credited", batchId: "PO-20260710", time: "昨日", feeBreakdown: { interchange: 93.96, scheme: 23.49, markup: 39.15 } },
+];
+
+// 定价方案：拆分定价 blended（统一费率）vs Interchange++ 分层定价（interchange + scheme 透传 + 我方 markup）
+export type PricingModel = "blended" | "ic_plus";
+export type PricingPlan = { model: PricingModel; percent: number; fixed: number };
+export const pricingPlanSeed: PricingPlan = { model: "blended", percent: 2.9, fixed: 0.3 };
+
+// IC+ 加价费率规则：渠道 × 支付方式 × 币种 唯一，用于按维度自定义 markup（固定费 + 比例 bps）
+export type FeeChannel = "online" | "pos" | "link" | "moto";
+export type FeeRule = { id: string; channel: FeeChannel; method: string; currency: string; fixed: number; rateBps: number };
+export const feeRulesSeed: FeeRule[] = [
+  { id: "FR-01", channel: "online", method: "Visa", currency: "USD", fixed: 0.10, rateBps: 20 },
+  { id: "FR-02", channel: "online", method: "Mastercard", currency: "USD", fixed: 0.10, rateBps: 25 },
+  { id: "FR-03", channel: "online", method: "Alipay", currency: "USD", fixed: 0.05, rateBps: 15 },
 ];
 
 // 风控规则（示例）：开关即刻影响新交易打分演示

@@ -47,6 +47,11 @@ import {
   paymentMethodsSeed,
   type PaymentMethod,
   type MethodKind,
+  pricingPlanSeed,
+  type PricingPlan,
+  type PricingModel,
+  feeRulesSeed,
+  type FeeRule,
 } from "./more";
 import { cards as initialCards, notifications as notificationsSeed, type Card, type CardControls, type CardChannel, type CardAutoTopup } from "./data";
 
@@ -210,6 +215,12 @@ type MockValue = {
   // 本地支付方式矩阵
   paymentMethods: PaymentMethod[];
   toggleMethod: (code: string) => void;
+  // 定价与费用透明：blended vs IC+ 方案切换（纯前端演示，不改真实余额）+ 自定义加价规则
+  pricingModel: PricingModel;
+  setPricingModel: (model: PricingModel) => void;
+  pricingPlan: PricingPlan;
+  feeRules: FeeRule[];
+  addFeeRule: (rule: { channel: FeeRule["channel"]; method: string; currency: string; fixed: number; rateBps: number }) => boolean;
   // 收款人
   recipients: Recipient[];
   addRecipient: (p: { name: string; account: string; country: string; currency: string }) => void;
@@ -286,6 +297,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [fxForwards, setFxForwards] = useState<FxForward[]>(fxForwardsSeed);
   const [riskRules, setRiskRules] = useState<RiskRule[]>(riskRulesSeed);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(paymentMethodsSeed);
+  const [pricingModel, setPricingModelState] = useState<PricingModel>(pricingPlanSeed.model);
+  const [feeRules, setFeeRules] = useState<FeeRule[]>(feeRulesSeed);
 
   const recordsRef = useRef(records);
   recordsRef.current = records;
@@ -327,6 +340,9 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const linkSeqRef = useRef(3021);
   const acqSeqRef = useRef(88231);
   const rcpSeqRef = useRef(100);
+  const feeRulesRef = useRef(feeRules);
+  feeRulesRef.current = feeRules;
+  const ruleSeqRef = useRef(feeRulesSeed.length);
 
   // ── 通知：loop 事件实时推送到铃铛 + 通知页 ──
   // 注：id 在更新函数外自增，避免 StrictMode 双调用导致序号跳号（保持更新函数纯净）
@@ -751,6 +767,16 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const toggleMethod: MockValue["toggleMethod"] = (code) =>
     setPaymentMethods((prev) => prev.map((m) => (m.code === code ? { ...m, enabled: !m.enabled } : m)));
 
+  // ── 定价与费用透明：方案切换纯前端演示（不改余额/不入台账），费率规则渠道×方式×币种三元组唯一 ──
+  const setPricingModel: MockValue["setPricingModel"] = (model) => setPricingModelState(model);
+  const addFeeRule: MockValue["addFeeRule"] = ({ channel, method, currency, fixed, rateBps }) => {
+    const dup = feeRulesRef.current.some((r) => r.channel === channel && r.method === method && r.currency === currency);
+    if (dup) return false;
+    const id = `FR-${String(++ruleSeqRef.current).padStart(2, "0")}`;
+    setFeeRules((prev) => [...prev, { id, channel, method, currency, fixed, rateBps }]);
+    return true;
+  };
+
   // ── 收款人：新增受益人（付款对话框实时可选）──
   const addRecipient: MockValue["addRecipient"] = ({ name, account, country, currency }) => {
     const rcp: Recipient = { id: `r${++rcpSeqRef.current}`, name, account, country, currency };
@@ -781,6 +807,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setFxForwards(fxForwardsSeed);
     setRiskRules(riskRulesSeed);
     setPaymentMethods(paymentMethodsSeed);
+    setPricingModelState(pricingPlanSeed.model);
+    setFeeRules(feeRulesSeed);
   };
 
   // 自动推进：结汇处理中的记录 + 已开始结算的批次
@@ -940,6 +968,11 @@ export function MockProvider({ children }: { children: ReactNode }) {
         collectLink,
         paymentMethods,
         toggleMethod,
+        pricingModel,
+        setPricingModel,
+        pricingPlan: pricingPlanSeed,
+        feeRules,
+        addFeeRule,
         recipients: recipientList,
         addRecipient,
         notifications: notifs,
