@@ -30,6 +30,7 @@ import SettingsPage from "@/pages/console/settings";
 import AccountPage from "@/pages/console/account";
 import NotificationsPage from "@/pages/console/notifications";
 import PricingPage from "@/pages/console/pricing";
+import SettlementSettingsPage from "@/pages/console/settlement-settings";
 
 export function App() {
   return (
@@ -64,6 +65,7 @@ export function App() {
         <Route path="settlement" element={<SettlementPage />} />
         <Route path="receiving" element={<ReceivingPage />} />
         <Route path="pricing" element={<PricingPage />} />
+        <Route path="settlement-settings" element={<SettlementSettingsPage />} />
         {/* 旧业务线路径重定向到商户视角页面 */}
         <Route path="issuing" element={<Navigate to="/app/cards" replace />} />
         <Route path="acquiring" element={<Navigate to="/app/payments" replace />} />

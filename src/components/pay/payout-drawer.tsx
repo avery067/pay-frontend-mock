@@ -1,7 +1,7 @@
 import { Check, Download, Zap } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, maskCard } from "@/lib/format";
 import { exportCsv } from "@/lib/export-csv";
 import { useMock } from "@/mock/store";
 import {
@@ -20,6 +20,22 @@ import { useToast } from "@/components/ui/toast";
 const BATCH_STEPS = ["acq.stepInBatch", "acq.stepSettling", "acq.stepPaidOut", "acq.stepCredited"];
 const IDX: Record<string, number> = { scheduled: 0, settling: 1, paid_out: 2, credited: 3 };
 
+// 打款通道：按币种给出一个示例清算网络名称，仅用于展示
+function railFor(currency: string): string {
+  switch (currency) {
+    case "USD":
+      return "ACH";
+    case "EUR":
+      return "SEPA";
+    case "GBP":
+      return "Faster Payments";
+    case "HKD":
+      return "RTGS";
+    default:
+      return "SWIFT";
+  }
+}
+
 export function PayoutDrawer({
   batchId,
   onOpenChange,
@@ -29,11 +45,13 @@ export function PayoutDrawer({
 }) {
   const { t } = useI18n();
   const { toast } = useToast();
-  const { batches, acqTxns, payoutRecords, advanceBatch, instantPayout } = useMock();
+  const { batches, acqTxns, payoutRecords, payoutAccounts, advanceBatch, instantPayout } = useMock();
   const b = batchId ? batches.find((x) => x.id === batchId) ?? null : null;
   const txns = b ? acqTxns.filter((x) => b.txnOrders.includes(x.order)) : [];
   const payout = b ? payoutRecords.find((p) => p.batchId === b.id) : null;
   const stageIdx = b ? IDX[b.status] : 0;
+  // 打款目标账户：优先取该批次币种对应的已启用账户，否则退回默认账户（若都取不到则不展示本区块）
+  const destAccount = b ? payoutAccounts.find((a) => a.status === "active" && a.currency === b.currency) ?? payoutAccounts.find((a) => a.isDefault) ?? null : null;
 
   return (
     <Sheet open={!!batchId} onOpenChange={onOpenChange}>
@@ -73,6 +91,13 @@ export function PayoutDrawer({
                       {payout.status === "paid" ? t("acq.payoutPaid") : t("acq.payoutInTransit")}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {destAccount && (
+                <div className="grid grid-cols-2 gap-3">
+                  <Cell label={t("payset.destAccount")} value={`${destAccount.label} · ${maskCard(destAccount.last4)}`} />
+                  <Cell label={t("payset.rail")} value={railFor(b.currency)} />
                 </div>
               )}
 

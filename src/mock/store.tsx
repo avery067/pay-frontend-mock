@@ -65,6 +65,10 @@ import {
   channelsSeed,
   type AcquiringChannel,
   type ChannelMode,
+  payoutAccountsSeed,
+  type PayoutAccount,
+  settlementConfigSeed,
+  type SettlementConfig,
 } from "./more";
 import { cards as initialCards, notifications as notificationsSeed, type Card, type CardControls, type CardChannel, type CardAutoTopup } from "./data";
 
@@ -225,6 +229,13 @@ type MockValue = {
   escalateDispute: (id: string) => void;
   uploadEvidence: (id: string, doc: string) => void;
   withdraw: (p: { currency: string; amount: number; channel?: WithdrawChannel }) => void;
+  // 结算与打款设置：账期方案 + 多银行账户按币种路由 + 自动扫款
+  payoutAccounts: PayoutAccount[];
+  settlementConfig: SettlementConfig;
+  addPayoutAccount: (p: { label: string; currency: string; country: string; last4: string }) => void;
+  setDefaultAccount: (id: string) => void;
+  updateSettlementConfig: (patch: Partial<Omit<SettlementConfig, "sweep">> & { sweep?: Partial<SettlementConfig["sweep"]> }) => void;
+  sweepNow: (currency: string, auto?: boolean) => void;
   // 统一实时台账 + 资金转出闭环
   ledger: LedgerTxn[];
   convert: (p: { from: string; to: string; pay: number; get: number }) => void;
@@ -386,6 +397,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const [feeRules, setFeeRules] = useState<FeeRule[]>(feeRulesSeed);
   const [channels, setChannels] = useState<AcquiringChannel[]>(channelsSeed);
   const [networkTokensOn, setNetworkTokensOn] = useState(false);
+  const [payoutAccounts, setPayoutAccounts] = useState<PayoutAccount[]>(payoutAccountsSeed);
+  const [settlementConfig, setSettlementConfig] = useState<SettlementConfig>(settlementConfigSeed);
 
   const recordsRef = useRef(records);
   recordsRef.current = records;
@@ -436,6 +449,13 @@ export function MockProvider({ children }: { children: ReactNode }) {
   const ruleSeqRef = useRef(feeRulesSeed.length);
   const networkTokensOnRef = useRef(networkTokensOn);
   networkTokensOnRef.current = networkTokensOn;
+  const balancesRef = useRef(balances);
+  balancesRef.current = balances;
+  const payoutAccountsRef = useRef(payoutAccounts);
+  payoutAccountsRef.current = payoutAccounts;
+  const settlementConfigRef = useRef(settlementConfig);
+  settlementConfigRef.current = settlementConfig;
+  const payoutAcctSeqRef = useRef(payoutAccountsSeed.length);
 
   // ── 通知：loop 事件实时推送到铃铛 + 通知页 ──
   // 注：id 在更新函数外自增，避免 StrictMode 双调用导致序号跳号（保持更新函数纯净）
@@ -927,6 +947,45 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setRecipientList((prev) => [rcp, ...prev]);
   };
 
+  // ── 结算与打款设置：账期方案 + 多银行账户按币种路由 + 自动扫款 ──
+  const addPayoutAccount: MockValue["addPayoutAccount"] = ({ label, currency, country, last4 }) => {
+    const seq = ++payoutAcctSeqRef.current;
+    const id = `PA-${String(seq).padStart(2, "0")}`;
+    const acct: PayoutAccount = { id, label, currency, country, last4, isDefault: false, status: "pending_verify" };
+    setPayoutAccounts((prev) => [...prev, acct]);
+    window.setTimeout(() => {
+      setPayoutAccounts((prev) => prev.map((a) => (a.id === id ? { ...a, status: "active" } : a)));
+      pushNotif("success", `打款账户「${label}」已通过验证`, `Payout account "${label}" verified`);
+    }, 4200);
+  };
+  const setDefaultAccount: MockValue["setDefaultAccount"] = (id) => {
+    const acct = payoutAccountsRef.current.find((a) => a.id === id);
+    if (!acct || acct.status !== "active") return;
+    setPayoutAccounts((prev) => prev.map((a) => ({ ...a, isDefault: a.id === id })));
+    pushNotif("success", `已将「${acct.label}」设为默认打款账户`, `"${acct.label}" set as default payout account`);
+  };
+  const updateSettlementConfig: MockValue["updateSettlementConfig"] = (patch) =>
+    setSettlementConfig((prev) => ({
+      ...prev,
+      ...patch,
+      sweep: patch.sweep ? { ...prev.sweep, ...patch.sweep } : prev.sweep,
+    }));
+  // 扫款：把该币种可用余额清零打入配置的目标账户；auto=true 表示由 tick 自动触发，否则为手动点击“立即扫款”
+  const sweepNow: MockValue["sweepNow"] = (currency, auto = false) => {
+    const bal = balancesRef.current.find((b) => b.currency === currency);
+    const target = payoutAccountsRef.current.find((a) => a.id === settlementConfigRef.current.sweep.targetAccountId);
+    if (!bal || !target || target.status !== "active" || bal.available <= 0) return;
+    const amount = Math.round(bal.available * 100) / 100;
+    const usdPer = getRate(currency, "USD");
+    setBalances((bs) => bs.map((b) => (b.currency === currency ? { ...b, available: 0, usdEq: Math.max(0, b.usdEq - amount * usdPer) } : b)));
+    pushLedger({ type: "payout", desc: auto ? "自动扫款" : "手动扫款", dir: "out", amount, currency, status: "settled" });
+    pushNotif(
+      "success",
+      `${auto ? "自动" : "手动"}扫款 ${currency} ${amount.toLocaleString()} → ${target.label}`,
+      `${auto ? "Auto-swept" : "Swept"} ${currency} ${amount.toLocaleString()} to ${target.label}`,
+    );
+  };
+
   // 一键重置所有示例状态到初始（原型 mock）
   const reset = () => {
     setBalances(initialBalances);
@@ -958,6 +1017,8 @@ export function MockProvider({ children }: { children: ReactNode }) {
     setFeeRules(feeRulesSeed);
     setChannels(channelsSeed);
     setNetworkTokensOn(false);
+    setPayoutAccounts(payoutAccountsSeed);
+    setSettlementConfig(settlementConfigSeed);
   };
 
   // 自动推进：结汇处理中的记录 + 已开始结算的批次
@@ -1024,6 +1085,16 @@ export function MockProvider({ children }: { children: ReactNode }) {
             pushNotif("success", `限价委托 ${o.id} 已触发结汇（${o.from}→CNY @ ${o.targetRate}）`, `FX order ${o.id} triggered`);
           }
         });
+
+      // 自动扫款：开启且目标账户余额达到阈值 → 本 tick 内自动触发（不新建定时器）
+      const sweepCfg = settlementConfigRef.current;
+      if (sweepCfg.sweep.on) {
+        const target = payoutAccountsRef.current.find((a) => a.id === sweepCfg.sweep.targetAccountId && a.status === "active");
+        const bal = target ? balancesRef.current.find((b) => b.currency === target.currency) : undefined;
+        if (target && bal && bal.available > 0 && bal.available >= sweepCfg.sweep.threshold) {
+          sweepNow(target.currency, true);
+        }
+      }
     }, 2600);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1112,6 +1183,12 @@ export function MockProvider({ children }: { children: ReactNode }) {
         escalateDispute,
         uploadEvidence,
         withdraw,
+        payoutAccounts,
+        settlementConfig,
+        addPayoutAccount,
+        setDefaultAccount,
+        updateSettlementConfig,
+        sweepNow,
         ledger,
         convert,
         transfer,
