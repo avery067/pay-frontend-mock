@@ -15,6 +15,7 @@ import TransfersPage from "@/pages/console/transfers";
 import RecipientsPage from "@/pages/console/recipients";
 import PaymentsPage from "@/pages/console/payments";
 import PaymentMethodsPage from "@/pages/console/payment-methods";
+import AcquiringChannelsPage from "@/pages/console/acquiring-channels";
 import PaymentLinksPage from "@/pages/console/payment-links";
 import RiskPage from "@/pages/console/risk";
 import DisputesPage from "@/pages/console/disputes";
@@ -46,6 +47,7 @@ export function App() {
         <Route path="recipients" element={<RecipientsPage />} />
         <Route path="payments" element={<PaymentsPage />} />
         <Route path="methods" element={<PaymentMethodsPage />} />
+        <Route path="acquiring-channels" element={<AcquiringChannelsPage />} />
         <Route path="links" element={<PaymentLinksPage />} />
         <Route path="risk" element={<RiskPage />} />
         <Route path="disputes" element={<DisputesPage />} />
